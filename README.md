@@ -1,13 +1,22 @@
 # SO(3)-covariant magnetic SANS
 
-This repository contains the Python sources used to generate the two figures
-in the main Letter on SO(3)-covariant powder-averaged magnetic SANS.
+This repository contains the analytical models, validation tests, numerical
+figure data, and rendering sources for the two figures in the main Letter on
+SO(3)-covariant powder-averaged magnetic SANS.
+
+> **MaMMoS data product.** The numerical content of both figures is exported
+> as one structured `mammos-entity` HDF5 file. It records the magnetization
+> models, sampled vector fields, orientation distributions, correlation
+> spectra, magnetic SANS channels, validation results, and provenance in a
+> common machine-readable hierarchy. The file is therefore a reproducible
+> representation of the model-to-observable workflow, rather than an
+> auxiliary dump of plotted arrays.
 
 The Pixi environment pins the `paperfig` revision used by the figure scripts
 and provides `mammos-entity`, NumPy, Matplotlib, PyVista, and Poppler. A
 working LaTeX installation must be available on `PATH` for Matplotlib's TeX
 rendering. Generated PNG files and numerical validation reports are written
-to `output/`.
+to `output/`; the MaMMoS data product is written to `output/data/`.
 
 ```sh
 pixi run check
@@ -17,10 +26,98 @@ pixi run fig1
 pixi run fig2
 ```
 
-The figure scripts are:
+The commands have the following roles:
+
+- `pixi run check` evaluates the standalone affine-pair diagnostic.
+- `pixi run test` runs the Pytest model and data-product checks.
+- `pixi run data` generates the MaMMoS HDF5 data product.
+- `pixi run fig1` and `pixi run fig2` render the paper figures.
+
+The figure renderers are:
 
 - `python/fig_vortex_p4.py`
 - `python/fig_affine_pair.py`
+
+## MaMMoS representation of the forward workflow
+
+The central numerical interface is `python/figure_data.py`. Both the figure
+renderers and `python/mammos_export.py` consume the same data objects, so the
+archived arrays cannot silently diverge from the quantities passed to the
+figure panels. The resulting hierarchy follows the scientific organization of
+the two constructions:
+
+```text
+SO3_covariant_magnetic_SANS.h5
+├── metadata
+├── figure_1
+│   ├── model
+│   ├── real_space_field
+│   ├── orientation_distributions
+│   ├── correlation_spectra
+│   ├── sans_cross_sections
+│   └── validation
+└── figure_2
+    ├── orientation_distribution
+    ├── displaced_circular_vortex
+    │   ├── model
+    │   ├── real_space_field
+    │   ├── correlation_spectra
+    │   └── sans_cross_sections
+    ├── centered_elliptic_vortex
+    │   ├── model
+    │   ├── real_space_field
+    │   ├── correlation_spectra
+    │   └── sans_cross_sections
+    └── validation
+```
+
+Using nested `mammos_entity.EntityCollection` objects has three practical
+advantages here:
+
+1. **One data contract across the workflow.** Analytical models, validation,
+   visualization, and later inverse-analysis tools can exchange the same
+   structured object instead of reconstructing conventions from individual
+   plotting scripts.
+2. **Physics and provenance remain together.** Model parameters, coordinate
+   and Fourier conventions, code version, normalization choices, and numerical
+   results are stored in the same artifact.
+3. **Raw observables remain distinguishable from visualization data.** The
+   unscaled magnetic SANS maps and the linearly normalized arrays used for the
+   color plots are stored separately, together with their normalization
+   factors.
+
+Generate and load the data product with:
+
+```sh
+pixi run data
+```
+
+```python
+from pathlib import Path
+
+import mammos_entity as me
+
+data = me.from_hdf5(
+    Path("output/data/SO3_covariant_magnetic_SANS.h5")
+)
+gamma_perp = data["figure_1"]["correlation_spectra"]["Gamma_perp"]
+spin_flip = data["figure_1"]["sans_cross_sections"]["I_sf_raw"]
+```
+
+The export is written atomically: a temporary HDF5 file is completed first
+and then moved to its final path. Its metadata record the schema version,
+generation time, Git commit and worktree state, package versions, coordinate
+ordering, Fourier convention, normalization, and the script that generated
+the artifact.
+
+The current Letter figures use dimensionless quantities. The export therefore
+documents `qR`, normalized correlation spectra, and normalized SANS maps
+explicitly without assigning misleading SI ontology labels. This distinction
+also leaves a clean route to future MaMMoS workflows containing physical
+magnetization fields, wave vectors, and volumetric scattering cross sections
+with units.
+
+## Models, validation, and figures
 
 The `tests/` directory contains the automated model checks. These cover the
 sphere form factor and its derivative, the general affine decomposition, the
@@ -61,10 +158,6 @@ orientation-ensemble comparison, while `fig2` generates the affine vortex
 pair with identical projected magnetic scattering.
 
 `pixi run data` writes
-`output/data/SO3_covariant_magnetic_SANS.h5`. The file contains provenance,
-model parameters, sampled body-frame vector fields, orientation distributions,
-the three correlation spectra, raw and displayed SANS maps, and numerical
-validation reports for both figures. The current paper figures are
-dimensionless. Accordingly, the export records their conventions and
-normalizations explicitly and does not assign misleading SI ontology labels to
-`qR`, normalized correlation spectra, or normalized SANS maps.
+`output/data/SO3_covariant_magnetic_SANS.h5`. Generated artifacts under
+`output/` are excluded from version control and can be reproduced from the
+pinned environment and repository sources.
