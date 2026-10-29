@@ -1,0 +1,12 @@
+# Pixi environment
+.pixi/
+
+# Generated figures and validation reports
+output/
+
+# Python runtime artifacts
+__pycache__/
+*.py[cod]
+
+# macOS metadata
+.DS_Store
