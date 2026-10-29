@@ -1,4 +1,4 @@
-"""MaMMoS serialization of the numerical data underlying the Letter figures."""
+"""MaMMoS serialization of the two magnetic-SANS data products."""
 
 from __future__ import annotations
 
@@ -11,22 +11,23 @@ import tempfile
 from typing import Mapping
 
 import mammos_entity as me
+import numpy as np
 
-from figure_data import (
-    AffinePairCaseData,
+from data_products import (
+    AffineProjectionData,
+    AffinePairData,
     CorrelationSpectraData,
     DetectorData,
-    Figure1Data,
-    Figure2Data,
+    LinearVortexOrientationData,
     OrientationDistributionData,
     RealSpaceFieldData,
-    build_figure_1_data,
-    build_figure_2_data,
+    build_affine_projection_data,
+    build_linear_vortex_orientation_data,
 )
 from magnetization_models import AffineMagnetizationModel
 
 
-SCHEMA_VERSION = "1.1"
+SCHEMA_VERSION = "2.0"
 
 
 def _quantity(
@@ -86,8 +87,8 @@ def _model_collection(model: AffineMagnetizationModel) -> me.EntityCollection:
     return me.EntityCollection(
         description=(
             "Dimensionless affine body-frame model M_0(r') = m_0 + m_1 r' "
-            "on a spherical support. The values reproduce the Letter figure and "
-            "do not carry an SI magnetization or length scale."
+            "on a spherical support. The values do not carry an SI "
+            "magnetization or length scale."
         ),
         radius=_quantity(
             "ISQDimensionlessQuantity",
@@ -131,9 +132,8 @@ def _model_collection(model: AffineMagnetizationModel) -> me.EntityCollection:
 def _field_collection(field: RealSpaceFieldData) -> me.EntityCollection:
     return me.EntityCollection(
         description=(
-            "Body-frame sample passed to the paperfig 3D vector-field panel. "
-            "Positions are expressed in units of R and magnetization in the "
-            "dimensionless model amplitude."
+            "Sampled body-frame magnetization field. Positions are expressed "
+            "in units of R and magnetization in the dimensionless model amplitude."
         ),
         positions_over_R=_quantity(
             "RatioQuantity",
@@ -179,9 +179,11 @@ def _spectra_collection(
 ) -> me.EntityCollection:
     return me.EntityCollection(
         description=(
-            "Dimensionless correlation spectra plotted as Gamma/Gamma_0. The "
-            "tensor convention is Gamma_perp Pi_perp + Gamma_parallel "
-            "Pi_parallel - i Gamma_cross [q_hat]_cross."
+            "Dimensionless correlation spectra computed from the stored "
+            "magnetization model and orientation assumptions and normalized as "
+            "Gamma/Gamma_0. They parameterize Gamma_perp Pi_perp + "
+            "Gamma_parallel Pi_parallel - i Gamma_cross [q_hat]_cross; the full "
+            "tensor field is not stored."
         ),
         qR=_quantity(
             "ISQDimensionlessQuantity",
@@ -209,9 +211,9 @@ def _spectra_collection(
 def _scattering_collection(scattering: DetectorData) -> me.EntityCollection:
     return me.EntityCollection(
         description=(
-            "Perpendicular-geometry magnetic SANS channel maps. Raw arrays are "
-            "dimensionless model outputs; display arrays are divided by the stored "
-            "linear normalization factors and are the arrays passed to the figures."
+            "Perpendicular-geometry magnetic SANS channel maps computed "
+            "directly from the stored q-dependent correlation spectra in the "
+            "dimensionless correlation-spectrum scale."
         ),
         qR_edges=_quantity(
             "ISQDimensionlessQuantity",
@@ -250,42 +252,17 @@ def _scattering_collection(scattering: DetectorData) -> me.EntityCollection:
             "RatioQuantity",
             scattering.spin_flip_raw,
             (
-                "Analytical spin-flip mean I_sf in the normalized correlation-spectrum "
-                "scale, before display normalization."
+                "Analytical spin-flip mean I_sf computed from Gamma_perp and "
+                "the detector angle in the normalized correlation-spectrum scale."
             ),
         ),
         I_chi_raw=_quantity(
             "RatioQuantity",
             scattering.chiral_raw,
             (
-                "Analytical chiral half-difference I_chi in the normalized "
-                "correlation-spectrum scale, before display normalization."
-            ),
-        ),
-        I_sf_display=_quantity(
-            "RatioQuantity",
-            scattering.spin_flip_display,
-            "Spin-flip mean divided by I_sf_display_scale for the figure color map.",
-        ),
-        I_chi_display=_quantity(
-            "RatioQuantity",
-            scattering.chiral_display,
-            (
-                "Chiral half-difference divided by I_chi_display_scale for the "
-                "figure color map."
-            ),
-        ),
-        I_sf_display_scale=_quantity(
-            "RatioQuantity",
-            scattering.spin_flip_scale,
-            "Maximum of I_sf_raw used for linear display normalization.",
-        ),
-        I_chi_display_scale=_quantity(
-            "RatioQuantity",
-            scattering.chiral_scale,
-            (
-                "Maximum absolute value of I_chi_raw used for linear display "
-                "normalization."
+                "Analytical chiral half-difference I_chi computed from "
+                "Gamma_cross and the detector angle in the normalized "
+                "correlation-spectrum scale."
             ),
         ),
     )
@@ -323,23 +300,34 @@ def _orientation_collection(
     )
 
 
-def _figure_1_collection(data: Figure1Data) -> me.EntityCollection:
+def _linear_vortex_orientation_collection(
+    data: LinearVortexOrientationData,
+    *,
+    generated_at: str,
+) -> me.EntityCollection:
     orientations = me.EntityCollection(
-        description="Orientation distributions used in the three Figure 1 paths."
+        description=(
+            "Three orientation distributions with the same second axis moment "
+            "and the same averaged two-point correlation tensor."
+        )
     )
     for orientation in data.orientations:
         orientations[orientation.name] = _orientation_collection(orientation)
     return me.EntityCollection(
         description=(
-            "Figure 1: one linear-vortex texture with three orientation "
-            "distributions and identical averaged correlation tensors and magnetic "
-            "SANS channel maps."
+            "Linear-vortex data product of orientation-distribution "
+            "non-identifiability: three distinct distributions produce the same "
+            "averaged correlation tensor and magnetic SANS cross sections."
+        ),
+        metadata=_metadata_collection(
+            generated_at=generated_at,
+            data_product="data1",
         ),
         model=_model_collection(data.model),
         real_space_field=_field_collection(data.field),
         orientation_distributions=orientations,
         correlation_spectra=_spectra_collection(data.spectra),
-        sans_cross_sections=_scattering_collection(data.scattering),
+        magnetic_SANS_cross_sections=_scattering_collection(data.scattering),
         validation=_collection_from_mapping(
             data.validation,
             description="Numerical checks of the three orientation ensembles.",
@@ -347,28 +335,37 @@ def _figure_1_collection(data: Figure1Data) -> me.EntityCollection:
     )
 
 
-def _affine_case_collection(case: AffinePairCaseData) -> me.EntityCollection:
+def _affine_model_collection(data: AffinePairData) -> me.EntityCollection:
     return me.EntityCollection(
-        description=f"Figure 2 data for {case.name.replace('_', ' ')}.",
-        model=_model_collection(case.model),
-        real_space_field=_field_collection(case.field),
-        correlation_spectra=_spectra_collection(case.spectra),
-        sans_cross_sections=_scattering_collection(case.scattering),
+        description=f"Data for the {data.name.replace('_', ' ')} model.",
+        model=_model_collection(data.model),
+        real_space_field=_field_collection(data.field),
+        correlation_spectra=_spectra_collection(data.spectra),
+        magnetic_SANS_cross_sections=_scattering_collection(data.scattering),
     )
 
 
-def _figure_2_collection(data: Figure2Data) -> me.EntityCollection:
+def _affine_projection_collection(
+    data: AffineProjectionData,
+    *,
+    generated_at: str,
+) -> me.EntityCollection:
     return me.EntityCollection(
         description=(
-            "Figure 2: two affine textures with different longitudinal correlation "
-            "spectra and identical projected magnetic SANS channel maps for psi=1."
+            "Affine-model data product of the Halpern-Johnson null space: two "
+            "textures have different longitudinal correlation spectra but "
+            "identical magnetic SANS cross sections for psi(R)=1."
+        ),
+        metadata=_metadata_collection(
+            generated_at=generated_at,
+            data_product="data2",
         ),
         orientation_distribution=me.EntityCollection(
             description="Uniform orientation distribution relative to Haar measure.",
             formula="psi(R) = 1",
         ),
-        displaced_circular_vortex=_affine_case_collection(data.circular),
-        centered_elliptic_vortex=_affine_case_collection(data.elliptic),
+        displaced_circular_vortex=_affine_model_collection(data.circular),
+        centered_elliptic_vortex=_affine_model_collection(data.elliptic),
         validation=_collection_from_mapping(
             data.validation,
             description="Numerical checks of the affine vortex pair.",
@@ -376,25 +373,31 @@ def _figure_2_collection(data: Figure2Data) -> me.EntityCollection:
     )
 
 
-def build_mammos_collection(
+def _generation_time(generated_at: str | None) -> str:
+    if generated_at is None:
+        return datetime.now(timezone.utc).isoformat()
+    return generated_at
+
+
+def _metadata_collection(
     *,
-    generated_at: str | None = None,
+    generated_at: str,
+    data_product: str,
 ) -> me.EntityCollection:
-    """Build the complete nested MaMMoS data product for both figures."""
+    """Return common provenance and numerical conventions."""
     repository = Path(__file__).resolve().parents[1]
     commit, dirty = _git_metadata(repository)
-    if generated_at is None:
-        generated_at = datetime.now(timezone.utc).isoformat()
-    metadata = me.EntityCollection(
+    return me.EntityCollection(
         description="Provenance and conventions for this data product.",
         schema_version=SCHEMA_VERSION,
+        data_product=data_product,
         generated_at_utc=generated_at,
         git_commit=commit,
         git_worktree_dirty=dirty,
         mammos_entity_version=me.__version__,
         numpy_version=importlib.metadata.version("numpy"),
-        data_generator="python/export_figure_data.py",
-        source_module="python/figure_data.py",
+        data_generator="python/export_data.py",
+        source_modules="python/data_products.py",
         coordinate_order="Cartesian x, y, z",
         reciprocal_coordinate_order="q_x, q_y, q_z; detector plane q_x = 0",
         fourier_convention=(
@@ -402,36 +405,49 @@ def build_mammos_collection(
             "first-order terms use R dF/d(qR)."
         ),
         normalization=(
-            "Dimensionless Letter data. Raw SANS maps retain the analytical model "
-            "scale; display maps are linearly normalized by their stored maxima."
+            "Dimensionless data. Magnetic SANS maps retain the analytical model "
+            "scale; no rendering normalization is stored."
         ),
         semantic_scope=(
             "Dimensionless numerical quantities carry generic MaMMoS ontology "
             "labels and explicit descriptions. No SI-specific magnetization, "
-            "wave-vector, or cross-section labels are assigned because the figures "
-            "do not define the corresponding physical scales."
+            "scattering-vector, or cross-section labels are assigned because "
+            "physical scales are not specified by the present dimensionless models."
         ),
-    )
-    return me.EntityCollection(
-        description=(
-            "Numerical data underlying Figures 1 and 2 of the Letter on "
-            "SO(3)-covariant powder-averaged magnetic SANS."
-        ),
-        metadata=metadata,
-        figure_1=_figure_1_collection(build_figure_1_data()),
-        figure_2=_figure_2_collection(build_figure_2_data()),
     )
 
 
-def export_mammos_hdf5(
-    output: str | os.PathLike[str],
+def build_linear_vortex_orientation_collection(
     *,
     generated_at: str | None = None,
+) -> me.EntityCollection:
+    """Build the orientation-distribution non-identifiability data product."""
+    timestamp = _generation_time(generated_at)
+    return _linear_vortex_orientation_collection(
+        build_linear_vortex_orientation_data(),
+        generated_at=timestamp,
+    )
+
+
+def build_affine_projection_collection(
+    *,
+    generated_at: str | None = None,
+) -> me.EntityCollection:
+    """Build the longitudinal-null-space non-identifiability data product."""
+    timestamp = _generation_time(generated_at)
+    return _affine_projection_collection(
+        build_affine_projection_data(),
+        generated_at=timestamp,
+    )
+
+
+def _write_hdf5(
+    collection: me.EntityCollection,
+    output: str | os.PathLike[str],
 ) -> Path:
-    """Atomically write the complete figure data product to HDF5."""
+    """Atomically write one MaMMoS data-product collection."""
     output_path = Path(output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    collection = build_mammos_collection(generated_at=generated_at)
     with tempfile.NamedTemporaryFile(
         dir=output_path.parent,
         prefix=f".{output_path.name}.",
@@ -445,3 +461,22 @@ def export_mammos_hdf5(
     finally:
         temporary_path.unlink(missing_ok=True)
     return output_path
+
+
+def export_data_products(
+    output_directory: str | os.PathLike[str],
+    *,
+    generated_at: str | None = None,
+) -> tuple[Path, Path]:
+    """Write the two independent data products to separate HDF5 files."""
+    output_directory = Path(output_directory)
+    timestamp = _generation_time(generated_at)
+    data1_path = _write_hdf5(
+        build_linear_vortex_orientation_collection(generated_at=timestamp),
+        output_directory / "data1.h5",
+    )
+    data2_path = _write_hdf5(
+        build_affine_projection_collection(generated_at=timestamp),
+        output_directory / "data2.h5",
+    )
+    return data1_path, data2_path

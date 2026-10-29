@@ -37,13 +37,13 @@ import pyvista as pv
 import paperfig as pf
 import paperfig.panel_3d as paperfig_panel_3d
 
-from figure_data import (
+from data_products import (
+    LinearVortexOrientationData,
+    OrientationDistributionData,
     Q_R_MAX,
-    Figure1Data,
     RealSpaceFieldData,
-    build_figure_1_data,
-    orientation_density,
 )
+from data_io import load_linear_vortex_orientation_data
 
 
 DENSITY_MIN = 0.0
@@ -57,6 +57,7 @@ FIGURE_HEIGHT_IN = FIGURE_HEIGHT_CM / 2.54
 def draw_orientation_sphere(
     axis: mpl.axes.Axes,
     distribution: str,
+    orientation: OrientationDistributionData | None = None,
 ) -> None:
     """Use the original sphere/camera, with a continuous scalar surface."""
 
@@ -67,10 +68,20 @@ def draw_orientation_sphere(
 
     if distribution == "hemisphere":
         # Separate meshes preserve the exact discontinuity at the equator.
+        upper_value = (
+            2.0
+            if orientation is None
+            else float(np.interp(0.5, orientation.z, orientation.density))
+        )
+        lower_value = (
+            0.0
+            if orientation is None
+            else float(np.interp(-0.5, orientation.z, orientation.density))
+        )
         surfaces = [(pv.Sphere(theta_resolution=128, phi_resolution=65,
-                              radius=1.0, start_phi=0, end_phi=90), 2.0),
+                              radius=1.0, start_phi=0, end_phi=90), upper_value),
                     (pv.Sphere(theta_resolution=128, phi_resolution=65,
-                               radius=1.0, start_phi=90, end_phi=180), 0.0)]
+                               radius=1.0, start_phi=90, end_phi=180), lower_value)]
     else:
         surfaces = [(pv.Sphere(radius=1.0, theta_resolution=128,
                                phi_resolution=129), None)]
@@ -79,7 +90,13 @@ def draw_orientation_sphere(
         sphere["psi"] = (
             np.full(sphere.n_points, value)
             if value is not None
-            else orientation_density(distribution, unit_points[:, 2])
+            else (
+                np.ones(sphere.n_points)
+                if orientation is None
+                else np.interp(
+                    unit_points[:, 2], orientation.z, orientation.density
+                )
+            )
         )
         plotter.add_mesh(
             sphere, scalars="psi", cmap="viridis",
@@ -235,14 +252,16 @@ def add_panel_label(figure, letter, left_cm, top_cm, *, outside=False):
     )
 
 
-def make_figure(data: Figure1Data | None = None) -> mpl.figure.Figure:
+def make_figure(
+    data: LinearVortexOrientationData | None = None,
+) -> mpl.figure.Figure:
     """Vortex -> three rows of sphere -> spectra -> SF/chiral, using paperfig.
 
     Font sizes are deliberately untouched. Shared labels and a branching
     connector make room for the extra column within the same figure width.
     """
     if data is None:
-        data = build_figure_1_data()
+        data = load_linear_vortex_orientation_data()
     figure = pf.create_paper_figure(
         width_cm=FIGURE_WIDTH_CM,
         height_cm=FIGURE_HEIGHT_CM,
@@ -298,13 +317,14 @@ def make_figure(data: Figure1Data | None = None) -> mpl.figure.Figure:
          "linewidth": options.linewidth, "linestyle": "-.",
          "label": r"$\Gamma_\times$"},
     ]
+    orientations = {item.name: item for item in data.orientations}
     for distribution, center_y, title, letters in (
         ("uniform", 9.7, r"$\psi(\mathbf R)=1,\ \langle\mathbf M\rangle_{\psi,\mathbf r}=\mathbf0$", "bcde"),
         ("hemisphere", 6.3, r"$\psi_H(\mathbf R),\ \langle\mathbf M\rangle_{\psi,\mathbf r}=\frac{m_0\mathbf e_z}{2}$", "fghi"),
         ("P4", 2.9, r"$\psi_\epsilon(\mathbf R),\ \langle\mathbf M\rangle_{\psi,\mathbf r}=\mathbf0$", "jklm"),
     ):
         sphere = pf.add_axes_cm(figure, 3.85, center_y - 1.45, 2.9, 2.9)
-        draw_orientation_sphere(sphere, distribution)
+        draw_orientation_sphere(sphere, distribution, orientations[distribution])
         label(title, 5.3, center_y + 1.6)
 
         panel = pf.plotLinLin_panel_core(
@@ -387,7 +407,7 @@ def main() -> None:
     parser.add_argument("--output-dir", type=Path, default=Path(tempfile.gettempdir()) / "so3-vortex-p4")
     args = parser.parse_args()
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    data = build_figure_1_data()
+    data = load_linear_vortex_orientation_data()
     report = dict(data.validation)
     report["paperfig_module"] = str(pf.__file__)
     report["figure_size_inches"] = [FIGURE_WIDTH_IN, FIGURE_HEIGHT_IN]

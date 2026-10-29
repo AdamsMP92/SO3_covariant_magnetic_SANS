@@ -21,6 +21,22 @@ from magnetization_models import (
 
 
 FloatArray = npt.NDArray[np.float64]
+ComplexArray = npt.NDArray[np.complex128]
+
+
+@dataclass(frozen=True)
+class MagneticChannelData:
+    """Purely magnetic polarization channels obtained from ``G``."""
+
+    I_plus_minus: FloatArray
+    I_minus_plus: FloatArray
+    I_plus_plus: FloatArray
+    I_minus_minus: FloatArray
+    I_plus: FloatArray
+    I_minus: FloatArray
+    I_unpolarized: FloatArray
+    I_sf: FloatArray
+    I_chi: FloatArray
 
 
 class TransverseChiralSpectra(Protocol):
@@ -82,6 +98,90 @@ class AffineMagneticSANSModel:
         """Return the two spectra retained by magnetic SANS."""
         gamma_perpendicular, _, gamma_cross = self.correlation_spectra(qr)
         return gamma_perpendicular, gamma_cross
+
+
+def transverse_projector(q_vector: npt.ArrayLike) -> FloatArray:
+    """Return the projector perpendicular to a nonzero scattering vector."""
+    q_array = np.asarray(q_vector, dtype=float)
+    if q_array.shape != (3,):
+        raise ValueError(f"q_vector must have shape (3,), got {q_array.shape}")
+    q_norm = float(np.linalg.norm(q_array))
+    if q_norm == 0.0:
+        raise ValueError("the transverse projector is undefined at q=0")
+    q_hat = q_array / q_norm
+    return np.eye(3) - np.outer(q_hat, q_hat)
+
+
+def halpern_johnson_projection(
+    correlation_tensor: npt.ArrayLike,
+    q_vector: npt.ArrayLike,
+) -> ComplexArray:
+    """Apply ``Pi_perp Gamma Pi_perp`` to a magnetic correlation tensor."""
+    tensor = np.asarray(correlation_tensor, dtype=complex)
+    if tensor.shape[-2:] != (3, 3):
+        raise ValueError("correlation_tensor must end in dimensions (3, 3)")
+    projector = transverse_projector(q_vector)
+    return np.einsum("ij,...jk,kl->...il", projector, tensor, projector)
+
+
+def magnetic_channel_contractions(
+    projected_tensor: npt.ArrayLike,
+    polarization: npt.ArrayLike,
+    *,
+    prefactor: float = 1.0,
+) -> MagneticChannelData:
+    """Contract ``G`` into the purely magnetic SANS channels.
+
+    Nuclear and spin-incoherent terms are intentionally absent. The returned
+    quantities use the channel convention of Eq. (8) in the Letter.
+    """
+    tensor = np.asarray(projected_tensor, dtype=complex)
+    if tensor.shape[-2:] != (3, 3):
+        raise ValueError("projected_tensor must end in dimensions (3, 3)")
+    polarization_array = np.asarray(polarization, dtype=float)
+    if polarization_array.shape != (3,):
+        raise ValueError("polarization must have shape (3,)")
+    polarization_norm = float(np.linalg.norm(polarization_array))
+    if polarization_norm == 0.0:
+        raise ValueError("polarization must be nonzero")
+    p_hat = polarization_array / polarization_norm
+    levi_civita = np.zeros((3, 3, 3))
+    levi_civita[0, 1, 2] = levi_civita[1, 2, 0] = levi_civita[2, 0, 1] = 1.0
+    levi_civita[0, 2, 1] = levi_civita[2, 1, 0] = levi_civita[1, 0, 2] = -1.0
+
+    trace = np.trace(tensor, axis1=-2, axis2=-1)
+    non_spin_flip = np.einsum("i,...ij,j->...", p_hat, tensor, p_hat)
+    spin_flip = trace - non_spin_flip
+    chiral = -1j * np.einsum(
+        "i,ijk,...jk->...",
+        p_hat,
+        levi_civita,
+        tensor,
+    )
+
+    def real_part(value: npt.ArrayLike) -> FloatArray:
+        value_array = np.asarray(value)
+        if np.max(np.abs(np.imag(value_array)), initial=0.0) > 1.0e-11:
+            raise ValueError(
+                "a channel contraction has a non-negligible imaginary part"
+            )
+        return prefactor * np.real(value_array)
+
+    spin_flip_real = real_part(spin_flip)
+    chiral_real = real_part(chiral)
+    non_spin_flip_real = real_part(non_spin_flip)
+    trace_real = real_part(trace)
+    return MagneticChannelData(
+        I_plus_minus=spin_flip_real + chiral_real,
+        I_minus_plus=spin_flip_real - chiral_real,
+        I_plus_plus=non_spin_flip_real,
+        I_minus_minus=non_spin_flip_real,
+        I_plus=trace_real + chiral_real,
+        I_minus=trace_real - chiral_real,
+        I_unpolarized=trace_real,
+        I_sf=spin_flip_real,
+        I_chi=chiral_real,
+    )
 
 
 def perpendicular_channel_maps(

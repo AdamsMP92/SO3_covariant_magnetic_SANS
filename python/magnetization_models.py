@@ -14,6 +14,7 @@ import numpy.typing as npt
 
 
 FloatArray = npt.NDArray[np.float64]
+ComplexArray = npt.NDArray[np.complex128]
 
 
 def legendre_p4(value: npt.ArrayLike) -> FloatArray:
@@ -131,6 +132,40 @@ class AffineMagnetizationModel:
         if position_array.ndim == 0 or position_array.shape[-1] != 3:
             raise ValueError("positions must have a final dimension of length 3")
         return self.m0 + position_array @ self.m1.T
+
+    def normalized_fourier_amplitude(
+        self,
+        q_vectors: npt.ArrayLike,
+    ) -> ComplexArray:
+        """Evaluate the normalized body-frame Fourier amplitude.
+
+        The spherical shape transform is normalized to one at ``q=0``. With
+        the unitary Fourier convention of the Letter, the omitted common
+        factor is the unitary transform of the sphere indicator at the
+        origin. This common factor cancels from every normalized quantity in
+        the repository.
+        """
+        q_array = np.asarray(q_vectors, dtype=float)
+        if q_array.ndim == 0 or q_array.shape[-1] != 3:
+            raise ValueError("q_vectors must have a final dimension of length 3")
+        q_norm = np.linalg.norm(q_array, axis=-1)
+        q_r = q_norm * self.radius
+        q_hat = np.zeros_like(q_array)
+        np.divide(
+            q_array,
+            q_norm[..., None],
+            out=q_hat,
+            where=q_norm[..., None] > 0.0,
+        )
+        form_factor = sphere_form_factor(q_r)
+        radius_weighted_derivative = (
+            self.radius * sphere_form_factor_derivative(q_r)
+        )
+        first_order_direction = q_hat @ self.m1.T
+        return (
+            form_factor[..., None] * self.m0
+            + 1j * radius_weighted_derivative[..., None] * first_order_direction
+        )
 
     def sample_field(
         self,

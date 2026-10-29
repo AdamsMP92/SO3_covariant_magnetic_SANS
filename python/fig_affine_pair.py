@@ -15,7 +15,8 @@ import tempfile
 
 sys.dont_write_bytecode = True
 import fig_vortex_p4 as base
-from figure_data import AffinePairCaseData, Figure2Data, build_figure_2_data
+from data_products import AffinePairData, AffineProjectionData
+from data_io import load_affine_projection_data
 
 mpl = base.mpl
 plt = base.plt
@@ -25,8 +26,8 @@ WIDTH_CM = 18.0
 HEIGHT_CM = 9.0
 
 
-def draw_texture(figure, case: AffinePairCaseData, center_y):
-    field = case.field
+def draw_texture(figure, data: AffinePairData, center_y):
+    field = data.field
     original = base.paperfig_panel_3d.add_reference_axes
     base.paperfig_panel_3d.add_reference_axes = lambda *args, **kwargs: None
     try:
@@ -48,9 +49,9 @@ def draw_texture(figure, case: AffinePairCaseData, center_y):
         base.paperfig_panel_3d.add_reference_axes = original
 
 
-def make_figure(data: Figure2Data | None = None):
+def make_figure(data: AffineProjectionData | None = None):
     if data is None:
-        data = build_figure_2_data()
+        data = load_affine_projection_data()
     figure = pf.create_paper_figure(
         width_cm=WIDTH_CM, height_cm=HEIGHT_CM, use_latex=True,
         fontserif="Computer Modern Roman",
@@ -73,19 +74,19 @@ def make_figure(data: Figure2Data | None = None):
     label(r"$I_{\chi,d}^{\perp}=I_{\chi,e}^{\perp}$", 16.275, 8.05)
 
     options = pf.global_options
-    for case, model, cy, title, letters in (
+    for data, model, cy, title, letters in (
         (data.circular, "d", 6.4, "displaced circular\nvortex", "abcde"),
         (data.elliptic, "e", 2.8, "centered elliptic\nvortex", "fghij"),
     ):
-        draw_texture(figure, case, cy)
+        draw_texture(figure, data, cy)
         label(title, 1.6, cy + 1.7, linespacing=1.1)
         sphere = pf.add_axes_cm(figure, 3.85, cy - 1.45, 2.9, 2.9)
         base.draw_orientation_sphere(sphere, "uniform")
         label(r"$\psi(\mathbf R)=1,\ \langle\mathbf M\rangle_{\psi,\mathbf r}=\mathbf0$",
               5.3, cy + 1.6)
 
-        spectra = case.spectra
-        scattering = case.scattering
+        spectra = data.spectra
+        scattering = data.scattering
         qr = spectra.q_r
         curves = [
             {"x": qr, "y": spectra.gamma_perpendicular, "color": options.colors[1],
@@ -177,7 +178,7 @@ def main():
                         default=Path(tempfile.gettempdir()) / "so3-affine-pair")
     args = parser.parse_args()
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    data = build_figure_2_data()
+    data = load_affine_projection_data()
     report = dict(data.validation)
     report["paperfig_module"] = str(pf.__file__)
     report["figure_size_cm"] = [WIDTH_CM, HEIGHT_CM]
