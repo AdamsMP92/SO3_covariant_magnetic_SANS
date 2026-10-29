@@ -104,15 +104,15 @@ def test_mammos_hdf5_roundtrip_preserves_schema_and_numerical_data(tmp_path) -> 
     figure_1 = build_figure_1_data()
     stored_figure_1 = loaded["figure_1"]
     np.testing.assert_array_equal(
-        stored_figure_1["real_space_field"]["positions_over_R"],
+        stored_figure_1["real_space_field"]["positions_over_R"].value,
         figure_1.field.positions,
     )
     np.testing.assert_array_equal(
-        stored_figure_1["correlation_spectra"]["Gamma_perp"],
+        stored_figure_1["correlation_spectra"]["Gamma_perp"].value,
         figure_1.spectra.gamma_perpendicular,
     )
     np.testing.assert_array_equal(
-        stored_figure_1["sans_cross_sections"]["I_sf_display"],
+        stored_figure_1["sans_cross_sections"]["I_sf_display"].value,
         figure_1.scattering.spin_flip_display,
     )
 
@@ -120,18 +120,45 @@ def test_mammos_hdf5_roundtrip_preserves_schema_and_numerical_data(tmp_path) -> 
     stored_figure_2 = loaded["figure_2"]
     np.testing.assert_array_equal(
         stored_figure_2["displaced_circular_vortex"]["correlation_spectra"]
-        ["Gamma_parallel"],
+        ["Gamma_parallel"].value,
         figure_2.circular.spectra.gamma_parallel,
     )
     np.testing.assert_array_equal(
         stored_figure_2["centered_elliptic_vortex"]["correlation_spectra"]
-        ["Gamma_parallel"],
+        ["Gamma_parallel"].value,
         figure_2.elliptic.spectra.gamma_parallel,
     )
+
+    gamma_perp = stored_figure_1["correlation_spectra"]["Gamma_perp"]
+    assert gamma_perp.ontology_label == "RatioQuantity"
+    assert gamma_perp.unit == ""
+    assert gamma_perp.description == (
+        "Transverse correlation spectrum Gamma_perp normalized by Gamma_0."
+    )
+
+    detector_angle = stored_figure_1["sans_cross_sections"][
+        "theta_centers_radian"
+    ]
+    assert detector_angle.ontology_label == "Angle"
+    assert detector_angle.unit == ""
+    assert "radians" in detector_angle.description
+
+    grid_points = stored_figure_1["real_space_field"][
+        "cartesian_grid_points_per_axis"
+    ]
+    assert grid_points.ontology_label == "NumberOfElements"
+    assert grid_points.description
 
     with h5py.File(output, "r") as hdf5_file:
         assert hdf5_file.attrs["mammos_entity_version"] == me.__version__
         assert hdf5_file["metadata"].attrs["description"] == (
             "Provenance and conventions for this data product."
+        )
+        gamma_dataset = hdf5_file[
+            "figure_1/correlation_spectra/Gamma_perp"
+        ]
+        assert gamma_dataset.attrs["ontology_label"] == "RatioQuantity"
+        assert gamma_dataset.attrs["description"] == (
+            "Transverse correlation spectrum Gamma_perp normalized by Gamma_0."
         )
         assert not list(tmp_path.glob(f".{output.name}.*.tmp"))

@@ -80,7 +80,10 @@ advantages here:
    plotting scripts.
 2. **Physics and provenance remain together.** Model parameters, coordinate
    and Fourier conventions, code version, normalization choices, and numerical
-   results are stored in the same artifact.
+   results are stored in the same artifact. Each primary numerical quantity is
+   a `mammos_entity.Entity` with an ontology label and a quantity-specific
+   description; the surrounding groups document its role in the forward
+   workflow.
 3. **Raw observables remain distinguishable from visualization data.** The
    unscaled magnetic SANS maps and the linearly normalized arrays used for the
    color plots are stored separately, together with their normalization
@@ -102,6 +105,11 @@ data = me.from_hdf5(
 )
 gamma_perp = data["figure_1"]["correlation_spectra"]["Gamma_perp"]
 spin_flip = data["figure_1"]["sans_cross_sections"]["I_sf_raw"]
+
+print(gamma_perp.ontology_label)  # RatioQuantity
+print(gamma_perp.description)
+gamma_perp_values = gamma_perp.value
+spin_flip_values = spin_flip.value
 ```
 
 The export is written atomically: a temporary HDF5 file is completed first
@@ -110,12 +118,14 @@ generation time, Git commit and worktree state, package versions, coordinate
 ordering, Fourier convention, normalization, and the script that generated
 the artifact.
 
-The current Letter figures use dimensionless quantities. The export therefore
-documents `qR`, normalized correlation spectra, and normalized SANS maps
-explicitly without assigning misleading SI ontology labels. This distinction
-also leaves a clean route to future MaMMoS workflows containing physical
-magnetization fields, wave vectors, and volumetric scattering cross sections
-with units.
+The current Letter figures use dimensionless quantities. The export assigns
+generic ontology concepts such as `ISQDimensionlessQuantity`, `RatioQuantity`,
+`Angle`, `Fraction`, and `NumberOfElements`, together with descriptions that
+state the normalization and scientific role of each quantity. It deliberately
+does not label `qR`, normalized correlation spectra, or normalized SANS maps as
+physical wave vectors, magnetization fields, or volumetric cross sections.
+Those more specific concepts and their units can be used when a future data
+product supplies the corresponding physical scales.
 
 ## Models, validation, and figures
 

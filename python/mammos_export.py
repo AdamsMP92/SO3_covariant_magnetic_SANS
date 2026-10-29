@@ -26,7 +26,20 @@ from figure_data import (
 from magnetization_models import AffineMagnetizationModel
 
 
-SCHEMA_VERSION = "1.0"
+SCHEMA_VERSION = "1.1"
+
+
+def _quantity(
+    ontology_label: str,
+    value: object,
+    description: str,
+) -> me.Entity:
+    """Return a dimensionless MaMMoS quantity with explicit semantics."""
+    return me.Entity(
+        ontology_label,
+        value=value,
+        description=description,
+    )
 
 
 def _git_metadata(repository: Path) -> tuple[str, bool]:
@@ -76,12 +89,42 @@ def _model_collection(model: AffineMagnetizationModel) -> me.EntityCollection:
             "on a spherical support. The values reproduce the Letter figure and "
             "do not carry an SI magnetization or length scale."
         ),
-        radius=model.radius,
-        m0=model.m0,
-        m1=model.m1,
-        zeta=model.zeta,
-        symmetric_traceless=model.symmetric_traceless,
-        omega=model.omega,
+        radius=_quantity(
+            "ISQDimensionlessQuantity",
+            model.radius,
+            "Sphere radius in the internal normalized length convention.",
+        ),
+        m0=_quantity(
+            "ISQDimensionlessQuantity",
+            model.m0,
+            (
+                "Constant term m_0 of the affine magnetization field in "
+                "normalized model amplitude."
+            ),
+        ),
+        m1=_quantity(
+            "ISQDimensionlessQuantity",
+            model.m1,
+            (
+                "First-order matrix m_1 of the affine magnetization field in the "
+                "internal normalized coordinate and amplitude convention."
+            ),
+        ),
+        zeta=_quantity(
+            "ISQDimensionlessQuantity",
+            model.zeta,
+            "Scalar part zeta = Tr(m_1)/3 of the first-order matrix.",
+        ),
+        symmetric_traceless=_quantity(
+            "ISQDimensionlessQuantity",
+            model.symmetric_traceless,
+            "Symmetric-traceless part S of the first-order matrix m_1.",
+        ),
+        omega=_quantity(
+            "ISQDimensionlessQuantity",
+            model.omega,
+            "Axial vector omega of the antisymmetric part [omega]_cross of m_1.",
+        ),
     )
 
 
@@ -92,12 +135,42 @@ def _field_collection(field: RealSpaceFieldData) -> me.EntityCollection:
             "Positions are expressed in units of R and magnetization in the "
             "dimensionless model amplitude."
         ),
-        positions_over_R=field.positions,
-        magnetization=field.magnetization,
-        magnitude=field.magnitude,
-        Mz_over_magnitude=field.axial_fraction,
-        cartesian_grid_points_per_axis=field.grid_points,
-        sampled_support_fraction_of_R=field.support_fraction,
+        positions_over_R=_quantity(
+            "RatioQuantity",
+            field.positions,
+            "Sample coordinates r'/R in Cartesian body-frame order x', y', z'.",
+        ),
+        magnetization=_quantity(
+            "ISQDimensionlessQuantity",
+            field.magnetization,
+            "Sampled body-frame magnetization vectors in normalized model amplitude.",
+        ),
+        magnitude=_quantity(
+            "ISQDimensionlessQuantity",
+            field.magnitude,
+            "Magnitude of each sampled normalized magnetization vector.",
+        ),
+        Mz_over_magnitude=_quantity(
+            "RatioQuantity",
+            field.axial_fraction,
+            "Axial component M_z divided by the local magnetization magnitude.",
+        ),
+        cartesian_grid_points_per_axis=_quantity(
+            "NumberOfElements",
+            field.grid_points,
+            (
+                "Number of Cartesian sampling points along each coordinate axis "
+                "before masking."
+            ),
+        ),
+        sampled_support_fraction_of_R=_quantity(
+            "Fraction",
+            field.support_fraction,
+            (
+                "Fraction of the sphere radius retained in the sampled "
+                "vector-field support."
+            ),
+        ),
     )
 
 
@@ -110,10 +183,26 @@ def _spectra_collection(
             "tensor convention is Gamma_perp Pi_perp + Gamma_parallel "
             "Pi_parallel - i Gamma_cross [q_hat]_cross."
         ),
-        qR=spectra.q_r,
-        Gamma_perp=spectra.gamma_perpendicular,
-        Gamma_parallel=spectra.gamma_parallel,
-        Gamma_cross=spectra.gamma_cross,
+        qR=_quantity(
+            "ISQDimensionlessQuantity",
+            spectra.q_r,
+            "Dimensionless scattering-vector magnitude qR.",
+        ),
+        Gamma_perp=_quantity(
+            "RatioQuantity",
+            spectra.gamma_perpendicular,
+            "Transverse correlation spectrum Gamma_perp normalized by Gamma_0.",
+        ),
+        Gamma_parallel=_quantity(
+            "RatioQuantity",
+            spectra.gamma_parallel,
+            "Longitudinal correlation spectrum Gamma_parallel normalized by Gamma_0.",
+        ),
+        Gamma_cross=_quantity(
+            "RatioQuantity",
+            spectra.gamma_cross,
+            "Signed chiral correlation spectrum Gamma_cross normalized by Gamma_0.",
+        ),
     )
 
 
@@ -124,18 +213,81 @@ def _scattering_collection(scattering: DetectorData) -> me.EntityCollection:
             "dimensionless model outputs; display arrays are divided by the stored "
             "linear normalization factors and are the arrays passed to the figures."
         ),
-        qR_edges=scattering.q_r_edges,
-        theta_edges_radian=scattering.theta_edges,
-        qR_centers=scattering.q_r_centers,
-        theta_centers_radian=scattering.theta_centers,
-        qzR_edges=scattering.q_z_r_edges,
-        qyR_edges=scattering.q_y_r_edges,
-        I_sf_raw=scattering.spin_flip_raw,
-        I_chi_raw=scattering.chiral_raw,
-        I_sf_display=scattering.spin_flip_display,
-        I_chi_display=scattering.chiral_display,
-        I_sf_display_scale=scattering.spin_flip_scale,
-        I_chi_display_scale=scattering.chiral_scale,
+        qR_edges=_quantity(
+            "ISQDimensionlessQuantity",
+            scattering.q_r_edges,
+            "Bin edges of the dimensionless radial detector coordinate qR.",
+        ),
+        theta_edges_radian=_quantity(
+            "Angle",
+            scattering.theta_edges,
+            "Bin edges of the detector azimuth theta; numerical values are in radians.",
+        ),
+        qR_centers=_quantity(
+            "ISQDimensionlessQuantity",
+            scattering.q_r_centers,
+            "Bin centers of the dimensionless radial detector coordinate qR.",
+        ),
+        theta_centers_radian=_quantity(
+            "Angle",
+            scattering.theta_centers,
+            (
+                "Bin centers of the detector azimuth theta; numerical values are "
+                "in radians."
+            ),
+        ),
+        qzR_edges=_quantity(
+            "ISQDimensionlessQuantity",
+            scattering.q_z_r_edges,
+            "Detector-grid edges of the dimensionless coordinate q_z R.",
+        ),
+        qyR_edges=_quantity(
+            "ISQDimensionlessQuantity",
+            scattering.q_y_r_edges,
+            "Detector-grid edges of the dimensionless coordinate q_y R.",
+        ),
+        I_sf_raw=_quantity(
+            "RatioQuantity",
+            scattering.spin_flip_raw,
+            (
+                "Analytical spin-flip mean I_sf in the normalized correlation-spectrum "
+                "scale, before display normalization."
+            ),
+        ),
+        I_chi_raw=_quantity(
+            "RatioQuantity",
+            scattering.chiral_raw,
+            (
+                "Analytical chiral half-difference I_chi in the normalized "
+                "correlation-spectrum scale, before display normalization."
+            ),
+        ),
+        I_sf_display=_quantity(
+            "RatioQuantity",
+            scattering.spin_flip_display,
+            "Spin-flip mean divided by I_sf_display_scale for the figure color map.",
+        ),
+        I_chi_display=_quantity(
+            "RatioQuantity",
+            scattering.chiral_display,
+            (
+                "Chiral half-difference divided by I_chi_display_scale for the "
+                "figure color map."
+            ),
+        ),
+        I_sf_display_scale=_quantity(
+            "RatioQuantity",
+            scattering.spin_flip_scale,
+            "Maximum of I_sf_raw used for linear display normalization.",
+        ),
+        I_chi_display_scale=_quantity(
+            "RatioQuantity",
+            scattering.chiral_scale,
+            (
+                "Maximum absolute value of I_chi_raw used for linear display "
+                "normalization."
+            ),
+        ),
     )
 
 
@@ -148,10 +300,26 @@ def _orientation_collection(
             "The sampled density is stored as a function of a_z."
         ),
         formula=orientation.formula,
-        a_z=orientation.z,
-        density=orientation.density,
-        first_axis_moment=orientation.first_moment,
-        second_axis_moment=orientation.second_moment,
+        a_z=_quantity(
+            "ISQDimensionlessQuantity",
+            orientation.z,
+            "Axial coordinate a_z = e_z dot a_hat of the vortex-axis direction.",
+        ),
+        density=_quantity(
+            "RatioQuantity",
+            orientation.density,
+            "Orientation probability density psi relative to normalized Haar measure.",
+        ),
+        first_axis_moment=_quantity(
+            "ISQDimensionlessQuantity",
+            orientation.first_moment,
+            "First moment <a_hat>_psi of the vortex-axis direction.",
+        ),
+        second_axis_moment=_quantity(
+            "ISQDimensionlessQuantity",
+            orientation.second_moment,
+            "Second moment <a_hat tensor a_hat>_psi of the vortex-axis direction.",
+        ),
     )
 
 
@@ -238,8 +406,10 @@ def build_mammos_collection(
             "scale; display maps are linearly normalized by their stored maxima."
         ),
         semantic_scope=(
-            "No SI ontology labels are assigned to qR, normalized Gamma spectra, "
-            "or normalized SANS maps because the figures do not define an SI scale."
+            "Dimensionless numerical quantities carry generic MaMMoS ontology "
+            "labels and explicit descriptions. No SI-specific magnetization, "
+            "wave-vector, or cross-section labels are assigned because the figures "
+            "do not define the corresponding physical scales."
         ),
     )
     return me.EntityCollection(
