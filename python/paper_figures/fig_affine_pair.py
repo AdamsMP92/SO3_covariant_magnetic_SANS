@@ -14,7 +14,7 @@ import sys
 import tempfile
 
 sys.dont_write_bytecode = True
-import fig_vortex_p4 as base
+import paper_figures.fig_vortex_p4 as base
 from data_products import AffinePairData, AffineProjectionData
 from data_io import load_affine_projection_data
 

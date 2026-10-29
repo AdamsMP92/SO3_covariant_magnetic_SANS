@@ -9,8 +9,8 @@ platforms = ["osx-arm64", "linux-64"]
 
 [tasks]
 check = "python python/check_affine_pair.py"
-test = "pytest -q tests"
-data = "python python/export_data.py --output-dir output/data"
+test = { cmd = "python -m pytest -q tests", env = { PYTHONPATH = "python", OPENBLAS_NUM_THREADS = "2", OMP_NUM_THREADS = "2" } }
+data = { cmd = "python -m models.build_data", env = { PYTHONPATH = "python", OPENBLAS_NUM_THREADS = "2", OMP_NUM_THREADS = "2" } }
 kernel = "python -m ipykernel install --user --name so3_covariant_magnetic_sans --display-name 'Python 3.11 (Pixi: so3-covariant-magnetic-sans)'"
 notebook = { cmd = "jupyter lab notebooks/inspect_data.ipynb", depends-on = ["kernel"] }
 fig1 = { cmd = "python python/fig_vortex_p4.py --output-dir output", depends-on = ["data"] }
@@ -25,6 +25,7 @@ pyvista = "==0.46.5"
 poppler = "==25.12.0"
 pytest = ">=8,<10"
 jupyterlab = ">=4,<5"
+scipy = ">=1.15,<2"
 
 [pypi-dependencies]
 paperfig = { git = "https://github.com/AdamsMP92/paperfig.git", rev = "9a70e7800d2ea520d4055807fe7da1bd00647fd9" }

@@ -1,163 +1,138 @@
 # SO(3)-covariant magnetic SANS
 
-This repository contains the analytical models, validation tests, numerical
-data, and rendering sources for the Letter on SO(3)-covariant
-powder-averaged magnetic SANS.
+A small forward pipeline for a sphere-supported affine magnetization model:
 
-The data organization follows the physics rather than the paper layout. Two
-independent `mammos-entity` HDF5 files represent the two data products:
+```text
+Model(m0, m1, R, psi)
+  -> global Fourier magnetization
+  -> QMC-averaged Gamma
+  -> transverse projection G
+  -> magnetic basis cross sections
+  -> POLARIS, SANSPOL and unpolarized channels
+  -> MaMMoS EntityCollection / HDF5
+```
 
-- `data1.h5` contains one linear-vortex
-  texture, three orientation distributions, their moments, the common
-  correlation spectra, and the resulting magnetic SANS cross sections.
-- `data2.h5` contains two affine textures with equal
-  transverse and chiral spectra, different longitudinal spectra, and identical
-  magnetic SANS cross sections after the Halpern--Johnson projection.
+The primary data are numerical QMC results. Selected known cases also include
+an independent analytical branch on the same detector and real-space grids.
 
-Neither file contains figure groups or rendering-normalized arrays. The figure
-scripts load the data-product files and construct their linear color
-normalizations from the stored raw cross sections. This keeps the physical
-data independent of a particular visualization.
+## Build and export data
 
-The Pixi environment pins the `paperfig` revision and provides
-`mammos-entity`, NumPy, Matplotlib, PyVista, Poppler, Pytest, and JupyterLab. A
-working LaTeX installation must be available on `PATH` for Matplotlib's TeX
-rendering.
+Use the pinned Pixi environment (`pixi install`). A small complete example is:
 
 ```sh
-pixi run check
+pixi run data --model examples/linear_vortex.json --output output/data/linear_vortex_example.h5 --radial-bins 3 --angular-bins 4 --power 12
 pixi run test
-pixi run data
-pixi run kernel
-pixi run notebook
-pixi run fig1
-pixi run fig2
 ```
 
-- `pixi run check` evaluates the standalone affine-pair diagnostic.
-- `pixi run test` runs the model and data-product tests.
-- `pixi run data` writes both MaMMoS data-product files to `output/data/`.
-- `pixi run kernel` registers the repository's Pixi environment in the user
-  Jupyter kernel directory under the project-specific name used by the
-  notebook and VS Code.
-- `pixi run notebook` registers that kernel and opens the MaMMoS-aware
-  inspection notebook.
-- `pixi run fig1` and `pixi run fig2` first refresh the data products and then
-  render the paper figures.
+The JSON example specifies the paper's axial linear vortex with a uniform
+northern-hemisphere axis distribution. Export preserves existing files unless
+`--overwrite` is supplied. Increase detector resolution and Sobol power for the
+intended accuracy; sample counts and observed analytical discrepancies are saved.
 
-## VS Code
-
-Open this repository itself as the VS Code workspace after creating the Pixi
-environment with `pixi install`, and run `pixi run kernel` once. This writes a
-small project-specific kernelspec to the user Jupyter directory so that VS Code
-can discover the Pixi interpreter. The checked-in
-`.vscode/settings.json` selects `.pixi/envs/default/bin/python` for Python
-scripts, Pytest, and notebook kernel discovery, and adds `python/` to the
-analysis import path. The notebook metadata references the unique
-`so3_covariant_magnetic_sans` kernel instead of the ambiguous generic
-`python3` kernel. VS Code will also recommend the official Python and Jupyter
-extensions when they are missing. If the notebook was already open while the
-kernel was registered, reload the VS Code window once.
-
-## MaMMoS data products
-
-`data1.h5` has this structure:
-
-```text
-data1.h5
-├── metadata
-├── model
-├── real_space_field
-├── orientation_distributions
-│   ├── uniform
-│   ├── hemisphere
-│   └── P4
-├── correlation_spectra
-├── magnetic_SANS_cross_sections
-└── validation
-```
-
-`data2.h5` has this structure:
-
-```text
-data2.h5
-├── metadata
-├── orientation_distribution
-├── displaced_circular_vortex
-│   ├── model
-│   ├── real_space_field
-│   ├── correlation_spectra
-│   └── magnetic_SANS_cross_sections
-├── centered_elliptic_vortex
-│   ├── model
-│   ├── real_space_field
-│   ├── correlation_spectra
-│   └── magnetic_SANS_cross_sections
-└── validation
-```
-
-Every primary numerical quantity is a `mammos_entity.Entity` with an ontology
-label and a quantity-specific description. The files also record the schema
-version, generation time, Git commit and worktree state, package versions,
-coordinate ordering, Fourier convention, and normalization. They are written
-atomically: a temporary HDF5 file is completed before it replaces the final
-path.
-
-The current models are dimensionless. Generic ontology concepts such as
-`ISQDimensionlessQuantity`, `RatioQuantity`, `Angle`, `Fraction`, and
-`NumberOfElements` are therefore paired with explicit descriptions. The data
-are not labeled as SI magnetization fields, scattering vectors, or volumetric
-cross sections because the corresponding physical scales are not specified.
-
-Generate and inspect the products with:
+The Python API, with `python/` on the import path, is:
 
 ```python
-from pathlib import Path
-
 import mammos_entity as me
+from models import Model, OrientationDistribution
+from models.SANS_detector_grid import regular_detector_grid
+from models.build_data import build_data
 
-data1 = me.from_hdf5(
-    Path("output/data/data1.h5")
+model = Model(
+    m0=[0, 0, 1],
+    m1=[[0, -7, 0], [7, 0, 0], [0, 0, 0]],
+    R=1,
+    psi=OrientationDistribution("P4", epsilon=0.9),
 )
-data2 = me.from_hdf5(
-    Path("output/data/data2.h5")
-)
+grid = regular_detector_grid(q_max=5, radial_bins=8, angular_bins=12)
+data = build_data(model, grid, power=14, seed=0, output="output/data/p4.h5")
 
-gamma_perp = data1["correlation_spectra"]["Gamma_perp"]
-spin_flip = data1["magnetic_SANS_cross_sections"]["I_sf_raw"]
-gamma_parallel_d = data2["displaced_circular_vortex"][
-    "correlation_spectra"
-]["Gamma_parallel"]
-
-print(gamma_perp.ontology_label)
-print(gamma_perp.description)
+restored = me.from_hdf5("output/data/p4.h5")
+gamma_xy = restored["qmc"]["Gamma"]["xy"].value
+spin_flip = restored["qmc"]["cross_sections"]["derived"]["I_sf"].value
 ```
 
-The notebook at `notebooks/inspect_data.ipynb` loads a product through
-`mammos_entity` and inspects the stored model, correlation spectra, and
-magnetic SANS cross sections.
+`build_data` returns the collection even when exporting. `export_data(data, path)`
+can export a collection later. HDF5 writing uses a temporary file followed by an
+atomic replacement.
 
-## Code organization
+## Model and analytical selection
 
-- `python/magnetization_models.py` defines the general affine field, its
-  scalar/symmetric-traceless/antisymmetric decomposition, and the linear-vortex
-  and affine-pair parameterizations.
-- `python/magnetic_SANS_models.py` evaluates the three analytical correlation
-  spectra, the Halpern--Johnson projection, and magnetic channel contractions.
-- `python/model_validation.py` contains numerical quadratures and diagnostics
-  for both non-identifiability constructions.
-- `python/data_products.py` builds the physics-level data objects.
-- `python/mammos_export.py` maps them to two independent nested MaMMoS
-  collections; `python/export_data.py` writes the HDF5 files.
-- `python/data_io.py` reconstructs the typed data-product objects from the
-  HDF5 products. Rendering normalizations are computed here from the raw maps.
-- `python/fig_vortex_p4.py` and `python/fig_affine_pair.py` contain the paper
-  composition and rendering logic and consume the HDF5 products.
+`Model` stores real `m0` of shape `(3,)`, real `m1` of shape `(3, 3)`, a positive
+sphere radius `R`, and a callable `psi(alpha, beta, gamma)`.
 
-The tests cover the sphere form factor and derivative, the general affine
-decomposition, real-space fields, tensor and detector symmetries, direct
-SO(3) quadrature, the two non-identifiability constructions, HDF5 roundtrips, and the
-absence of figure-specific language from the stored data products.
+The default density is uniform. Named densities can be selected by passing
+`psi="uniform"`, `"hemisphere"`, `"P4"` or `"compensated"`. All are relative to
+the normalized SO(3) Haar measure. P4 defaults to epsilon=0.9; use
+`OrientationDistribution("P4", epsilon=...)` for another coefficient in the
+paper's range `abs(epsilon) <= 1`.
 
-Generated artifacts under `output/` are excluded from version control and can
-be reproduced from the pinned environment and repository sources.
+Custom callable densities are supported by QMC and must already satisfy
+`integral psi dQ = 1`; they are not numerically renormalized. Their sampled values,
+normalization estimate and available callable source are saved. Custom callables
+are not automatically classified as an analytical case.
+
+Analytical first moments are available for all four named densities. Analytical
+Gamma, G and SANS channels are selected for:
+
+- Any affine model with the uniform density.
+- An axial linear vortex with hemisphere, P4 or compensated density, using the
+  paper's axis-moment factorization.
+
+The compensated vortex has an anisotropic tensor. Its analytical tensor is
+stored without labeling it by three radial spectra. For uniform and the
+observationally equivalent hemisphere/P4 vortices, all three radial spectra are
+stored; G and the cross sections use only the transverse and chiral spectra.
+Other nonuniform affine models receive analytical means and QMC tensors.
+Availability flags in `analytical` specify which comparisons exist.
+
+## Saved data
+
+```text
+metadata       schema, QMC settings, versions, Git state, source snapshot and hashes
+model          m0, m1, R, spin axis P, prefactor K, nuclear/interference inputs
+  orientation  density, exact sampled Euler angles, sampled mass and axis moments
+detector       q/theta axes and 2D maps, qz/qy maps, Cartesian q vectors, optional edges
+real_space     x, y, z, mx, my, mz: local body-frame point arrays after sphere cut
+qmc
+  Gamma        xx, xy, xz, yx, yy, yz, zx, zy, zz (native complex entities)
+  G            all nine native complex components
+  cross_sections
+    basic      I_M, I_P, I_chi
+    derived    I_sf, I_pp, I_mm, I_pm, I_mp, I_plus, I_minus, I_unp
+  magnetization
+    field_mean       orientation QMC at the interior positions
+    volume_mean      exact spatial integral, followed by 3D orientation QMC
+    volume_mean_6d   independent joint orientation/volume QMC control
+analytical     available exact means, tensors, spectra, channels and discrepancies
+```
+
+Every detector component has shape `(n_theta, n_q)`. The beam is along x,
+`qx=0`, `qy=q*sin(theta)` and `qz=q*cos(theta)`. Theta is measured in radians
+from +z towards +y. Regular grids use bin centers at positive q and also store
+bin edges; the transverse projection is undefined at q=0.
+
+The data use dimensionless model coordinates and coefficients, `F(0)=1`, and the
+normalized Fourier amplitudes used by the local model. Unit-specific SI labels
+are not assigned. The unitary Fourier amplitude is obtained by multiplying by
+`V_s/(2*pi)**1.5`; Gamma and G require its square. The supplied `K` multiplies
+the stored normalization; its default is 1. Nuclear intensity `I_N` and signed
+nuclear-magnetic interference `I_NM` are independent optional inputs, both zero
+by default. No rendering color normalization is stored.
+
+Local real-space data are generated by `real_space_grid(m0, m1, R, grid_points=5)`.
+The grid uses Cartesian cell centers in `[-R,R]`, keeps only `x*x+y*y+z*z < R*R`,
+and evaluates the unrotated local affine field. Its result contains exactly the
+six one-dimensional arrays `x`, `y`, `z`, `mx`, `my`, `mz`. Set
+`build_data(..., real_space_grid_points=9)` or CLI `--real-space-grid-points 9`
+to change the resolution. Optional `real_space_points` receive the same sphere
+cut. Pointwise mean fields use the order defined by these stored coordinates.
+
+## Source layout
+
+`python/models/` contains the local/global models, rotation matrix, first and
+second moments, projection, basis/derived channels, detector grid and data
+builder. The tests exercise the actual QMC chain, analytical eligibility and
+lossless complex HDF5 roundtrips. `python/paper_figures/` contains the retained
+figure scripts; their rendering integration is separate from this data builder.
+
+Generated files under `output/` and the Pixi environment are excluded from Git.
