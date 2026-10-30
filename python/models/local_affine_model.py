@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def affine_magnetization(x, m0, m1, R):
     """Local affine field for positions x of shape (..., 3)."""
     return m0 + (m1 @ np.asarray(x)[..., None])[..., 0]

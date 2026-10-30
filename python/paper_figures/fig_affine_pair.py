@@ -80,8 +80,7 @@ def make_figure(data: AffineProjectionData | None = None):
     ):
         draw_texture(figure, data, cy)
         label(title, 1.6, cy + 1.7, linespacing=1.1)
-        sphere = pf.add_axes_cm(figure, 3.85, cy - 1.45, 2.9, 2.9)
-        base.draw_orientation_sphere(sphere, "uniform")
+        base.draw_orientation_sphere(figure, pos_cm=(3.85, cy - 1.45))
         label(r"$\psi(\mathbf R)=1,\ \langle\mathbf M\rangle_{\psi,\mathbf r}=\mathbf0$",
               5.3, cy + 1.6)
 
@@ -111,20 +110,20 @@ def make_figure(data: AffineProjectionData | None = None):
         else:
             panel.get_legend().remove()
 
-        sf_axis = pf.add_axes_cm(figure, 11.65, cy - 1.275, 2.55, 2.55)
-        base.draw_detector_map(
-            sf_axis,
+        sf_axis = base.draw_detector_map(
+            figure,
             scattering.q_z_r_edges,
             scattering.q_y_r_edges,
             scattering.spin_flip_display,
+            pos_cm=(11.65, cy - 1.275),
         )
         sf_axis.set_ylabel(r"$q_yR$", labelpad=0.5)
-        chi_axis = pf.add_axes_cm(figure, 15.0, cy - 1.275, 2.55, 2.55)
-        base.draw_detector_map(
-            chi_axis,
+        chi_axis = base.draw_detector_map(
+            figure,
             scattering.q_z_r_edges,
             scattering.q_y_r_edges,
             scattering.chiral_display,
+            pos_cm=(15.0, cy - 1.275),
             chiral=True,
         )
         if model == "e":

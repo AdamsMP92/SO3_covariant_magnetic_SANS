@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Extend the original paperfig composition to three orientation ensembles.
+"""Figure 1 from the analytical data in the three case-study HDF5 files.
 
 The dense 3D vortex stays left. Each of the three horizontal paths then
 contains an orientation sphere, a spectrum panel, and SF and chiral maps.
@@ -10,8 +10,8 @@ psi=1, a uniform northern hemisphere, and psi=1+0.9*P4(a_z), on a shared
 0--2 color scale. All three second axis moments agree, whereas the
 hemispherical first moment is nonzero.
 
-Run with the project's environment containing paperfig/PyVista::
-    python python/fig_vortex_p4.py --output-dir /tmp/so3-vortex-p4
+Run from the repository root with the project's environment::
+    python -m python.paper_figures.fig_vortex_p4
 """
 
 from __future__ import annotations
@@ -20,7 +20,6 @@ from pathlib import Path
 import argparse
 import json
 import os
-import subprocess
 import tempfile
 
 os.environ.setdefault("MPLCONFIGDIR", str(Path(tempfile.gettempdir()) / "so3-paperfig-cache"))
@@ -32,18 +31,14 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Circle, FancyArrowPatch
 import numpy as np
 import pyvista as pv
+import mammos_entity as me
 
 
 import paperfig as pf
 import paperfig.panel_3d as paperfig_panel_3d
 
-from data_products import (
-    LinearVortexOrientationData,
-    OrientationDistributionData,
-    Q_R_MAX,
-    RealSpaceFieldData,
-)
-from data_io import load_linear_vortex_orientation_data
+from ..generate_data.load_model import load_psi
+from ..models.model import OrientationDistribution
 
 
 DENSITY_MIN = 0.0
@@ -52,32 +47,45 @@ FIGURE_WIDTH_CM = 18.0
 FIGURE_HEIGHT_CM = 12.55
 FIGURE_WIDTH_IN = FIGURE_WIDTH_CM / 2.54
 FIGURE_HEIGHT_IN = FIGURE_HEIGHT_CM / 2.54
+Q_R_MAX = 5.0
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DATA_FILENAMES = tuple(f"case_study1_{index}.h5" for index in (1, 2, 3))
+
+
+def load_figure_data(data_dir):
+    """Read the three generated MaMMoS collections in the paper's row order."""
+    data = [me.from_hdf5(Path(data_dir) / name) for name in DATA_FILENAMES]
+    for case, expected in zip(data, ("uniform", "hemisphere", "p4")):
+        if case["model"]["psi"]["name"] != expected:
+            raise ValueError(f"Figure 1 expects the {expected} orientation density in this row.")
+        for name in ("m0", "m1", "R"):
+            if not np.array_equal(case["model"][name].value, data[0]["model"][name].value):
+                raise ValueError("Figure 1 requires the same local texture in all three cases.")
+        for name in ("q", "theta"):
+            if not np.array_equal(case["detector"][name].value, data[0]["detector"][name].value):
+                raise ValueError("Figure 1 requires matching detector points for all three cases.")
+    return data
 
 
 def draw_orientation_sphere(
-    axis: mpl.axes.Axes,
-    distribution: str,
-    orientation: OrientationDistributionData | None = None,
+    figure,
+    model=None,
+    *,
+    pos_cm,
+    size_cm=(2.9, 2.9),
 ) -> None:
     """Use the original sphere/camera, with a continuous scalar surface."""
+    orientation = OrientationDistribution("uniform") if model is None else load_psi(model["psi"])
 
     plotter = pv.Plotter(off_screen=True, window_size=(900, 900))
     plotter.set_background("white")
     plotter.enable_anti_aliasing("ssaa")
     plotter.enable_depth_peeling()
 
-    if distribution == "hemisphere":
+    if orientation.name == "hemisphere":
         # Separate meshes preserve the exact discontinuity at the equator.
-        upper_value = (
-            2.0
-            if orientation is None
-            else float(np.interp(0.5, orientation.z, orientation.density))
-        )
-        lower_value = (
-            0.0
-            if orientation is None
-            else float(np.interp(-0.5, orientation.z, orientation.density))
-        )
+        upper_value = float(orientation(0.0, np.arccos(0.5), 0.0))
+        lower_value = float(orientation(0.0, np.arccos(-0.5), 0.0))
         surfaces = [(pv.Sphere(theta_resolution=128, phi_resolution=65,
                               radius=1.0, start_phi=0, end_phi=90), upper_value),
                     (pv.Sphere(theta_resolution=128, phi_resolution=65,
@@ -90,13 +98,7 @@ def draw_orientation_sphere(
         sphere["psi"] = (
             np.full(sphere.n_points, value)
             if value is not None
-            else (
-                np.ones(sphere.n_points)
-                if orientation is None
-                else np.interp(
-                    unit_points[:, 2], orientation.z, orientation.density
-                )
-            )
+            else orientation(0.0, np.arccos(np.clip(unit_points[:, 2], -1.0, 1.0)), 0.0)
         )
         plotter.add_mesh(
             sphere, scalars="psi", cmap="viridis",
@@ -148,13 +150,17 @@ def draw_orientation_sphere(
     plotter.clear()
     plotter.close()
 
-    axis.imshow(image)
+    axis, _ = pf.plot2D_panel_core(
+        figure, np.array([0.0, 1.0]), np.array([0.0, 1.0]), np.flipud(image),
+        pos_cm=pos_cm, size_cm=size_cm, xlabel="", ylabel="",
+        xticks=(), yticks=(),
+    )
     axis.axis("off")
-    axis.text(
-        0.57,
-        0.94,
+    pf.add_label_cm(
+        figure,
         r"$\mathbf e_z$",
-        transform=axis.transAxes,
+        pos_cm[0] + 0.57 * size_cm[0],
+        pos_cm[1] + 0.94 * size_cm[1],
         ha="left",
         va="center",
         clip_on=False,
@@ -162,26 +168,35 @@ def draw_orientation_sphere(
 
 
 def draw_detector_map(
-    axis: mpl.axes.Axes,
+    figure,
     q_z_r: np.ndarray,
     q_y_r: np.ndarray,
     intensity: np.ndarray,
     *,
+    pos_cm,
+    size_cm=(2.55, 2.55),
     chiral: bool = False,
-) -> None:
+    xlabel="",
+    ylabel="",
+):
     """Draw the SF mean or the signed chiral half-difference."""
     color_map = mpl.colormaps["RdBu_r" if chiral else "magma"].copy()
     color_map.set_bad("white")
-    norm = mpl.colors.Normalize(vmin=-1.0 if chiral else 0.0, vmax=1.0)
-    axis.pcolormesh(
-        q_z_r,
-        q_y_r,
-        intensity,
-        shading="flat",
-        cmap=color_map,
-        norm=norm,
-        rasterized=True,
+    shading = "flat"
+    if q_z_r.shape == intensity.shape:
+        # Close the periodic angle axis while retaining the stored point coordinates.
+        q_z_r = np.concatenate([q_z_r, q_z_r[:1]], axis=0)
+        q_y_r = np.concatenate([q_y_r, q_y_r[:1]], axis=0)
+        intensity = np.concatenate([intensity, intensity[:1]], axis=0)
+        shading = "gouraud"
+    axis, mesh = pf.plot2D_pcolormesh_panel_core(
+        figure, q_z_r, q_y_r, intensity,
+        pos_cm=pos_cm, size_cm=size_cm, shading=shading,
+        cmap=color_map, vmin=-1.0 if chiral else 0.0, vmax=1.0,
+        aspect="equal", xlim=(-Q_R_MAX, Q_R_MAX), ylim=(-Q_R_MAX, Q_R_MAX),
+        xticks=(-5, 0, 5), yticks=(-5, 0, 5), xlabel=xlabel, ylabel=ylabel,
     )
+    mesh.set_rasterized(True)
     axis.add_patch(
         Circle(
             (0.0, 0.0),
@@ -191,33 +206,31 @@ def draw_detector_map(
             linewidth=0.55,
         )
     )
-    axis.set(
-        aspect="equal",
-        xlim=(-Q_R_MAX, Q_R_MAX),
-        ylim=(-Q_R_MAX, Q_R_MAX),
-        xticks=(-5, 0, 5),
-        yticks=(-5, 0, 5),
-    )
-    axis.tick_params(direction="out", length=1.8, width=0.5, pad=1.0)
+    return axis
 
 
 def draw_linear_vortex(
     figure: mpl.figure.Figure,
-    field: RealSpaceFieldData,
+    field,
+    *,
+    display_radius=None,
 ) -> mpl.axes.Axes:
     """Render the common 3D vortex texture with paperfig's fast glyph path."""
+    positions = np.column_stack([field[axis].value for axis in "xyz"])
+    magnetization = np.column_stack([field[f"m{axis}"].value for axis in "xyz"])
+    if display_radius is not None:
+        inside = np.linalg.norm(positions, axis=1) < display_radius
+        positions, magnetization = positions[inside], magnetization[inside]
+    norm = np.linalg.norm(magnetization, axis=1)
+    axial_fraction = np.divide(magnetization[:, 2], norm, out=np.zeros_like(norm), where=norm != 0)
     original_reference_axes = paperfig_panel_3d.add_reference_axes
     paperfig_panel_3d.add_reference_axes = lambda *args, **kwargs: None
     try:
         axis, _ = pf.quiver3_advanced_panel_fast(
             figure,
-            field.positions[:, 0],
-            field.positions[:, 1],
-            field.positions[:, 2],
-            field.magnetization[:, 0],
-            field.magnetization[:, 1],
-            field.magnetization[:, 2],
-            field.axial_fraction,
+            positions[:, 0], positions[:, 1], positions[:, 2],
+            magnetization[:, 0], magnetization[:, 1], magnetization[:, 2],
+            axial_fraction,
             Cmin=0.0,
             Cmax=1.0,
             cmap="RdBu",
@@ -252,16 +265,14 @@ def add_panel_label(figure, letter, left_cm, top_cm, *, outside=False):
     )
 
 
-def make_figure(
-    data: LinearVortexOrientationData | None = None,
-) -> mpl.figure.Figure:
+def make_figure(data=None) -> mpl.figure.Figure:
     """Vortex -> three rows of sphere -> spectra -> SF/chiral, using paperfig.
 
     Font sizes are deliberately untouched. Shared labels and a branching
     connector make room for the extra column within the same figure width.
     """
     if data is None:
-        data = load_linear_vortex_orientation_data()
+        data = load_figure_data(PROJECT_ROOT / "output" / "data")
     figure = pf.create_paper_figure(
         width_cm=FIGURE_WIDTH_CM,
         height_cm=FIGURE_HEIGHT_CM,
@@ -269,7 +280,11 @@ def make_figure(
         fontserif="Computer Modern Roman",
     )
     mpl.rcParams["text.latex.preamble"] = r"\usepackage{amsmath,amssymb}"
-    draw_linear_vortex(figure, data.field)
+    # Preserve the original glyph sampling; the HDF5 grid covers the full sphere.
+    draw_linear_vortex(
+        figure, data[0]["real_space"],
+        display_radius=0.9 * float(data[0]["model"]["R"].value),
+    )
     add_panel_label(figure, "a", 0.02, 7.875)
 
     def label(text, x, y, **kwargs):
@@ -296,36 +311,29 @@ def make_figure(
     pf.add_line_cm(figure, 3.05, 6.3, 3.35, 6.3, linewidth=0.8, color="0.28")
     pf.add_line_cm(figure, 3.35, 2.9, 3.35, 9.7, linewidth=0.8, color="0.28")
 
-    scattering = data.scattering
-    spectra = data.spectra
-    q_z_r = scattering.q_z_r_edges
-    q_y_r = scattering.q_y_r_edges
-    intensity = scattering.spin_flip_display
-    chiral = scattering.chiral_display
-    qr = spectra.q_r
-    transverse = spectra.gamma_perpendicular
-    longitudinal = spectra.gamma_parallel
-    cross = spectra.gamma_cross
+    sf_max = max(np.max(case["SANS_cross_sections"]["analytical"]["derived"]["I_sf"].value) for case in data)
+    chi_max = max(np.max(np.abs(case["SANS_cross_sections"]["analytical"]["basic"]["I_chi"].value)) for case in data)
     options = pf.global_options
-    curves = [
-        {"x": qr, "y": transverse, "color": options.colors[1],
-         "linewidth": options.linewidth, "label": r"$\Gamma_\perp$"},
-        {"x": qr, "y": longitudinal, "color": options.colors[0],
-         "linewidth": options.linewidth, "linestyle": "--",
-         "label": r"$\Gamma_\parallel$"},
-        {"x": qr, "y": cross, "color": options.colors[2],
-         "linewidth": options.linewidth, "linestyle": "-.",
-         "label": r"$\Gamma_\times$"},
-    ]
-    orientations = {item.name: item for item in data.orientations}
-    for distribution, center_y, title, letters in (
+    for case, (distribution, center_y, title, letters) in zip(data, (
         ("uniform", 9.7, r"$\psi(\mathbf R)=1,\ \langle\mathbf M\rangle_{\psi,\mathbf r}=\mathbf0$", "bcde"),
         ("hemisphere", 6.3, r"$\psi_H(\mathbf R),\ \langle\mathbf M\rangle_{\psi,\mathbf r}=\frac{m_0\mathbf e_z}{2}$", "fghi"),
         ("P4", 2.9, r"$\psi_\epsilon(\mathbf R),\ \langle\mathbf M\rangle_{\psi,\mathbf r}=\mathbf0$", "jklm"),
-    ):
-        sphere = pf.add_axes_cm(figure, 3.85, center_y - 1.45, 2.9, 2.9)
-        draw_orientation_sphere(sphere, distribution, orientations[distribution])
+    )):
+        draw_orientation_sphere(figure, case["model"], pos_cm=(3.85, center_y - 1.45))
         label(title, 5.3, center_y + 1.6)
+
+        radius = case["model"]["R"].value
+        gamma0 = np.dot(case["model"]["m0"].value, case["model"]["m0"].value)
+        spectra = case["average_gamma_tensor"]["analytical"]["spectra"]
+        qr = case["detector"]["q_axis"].value * radius
+        curves = [
+            {"x": qr, "y": spectra["perpendicular"].value / gamma0, "color": options.colors[1],
+             "linewidth": options.linewidth, "label": r"$\Gamma_\perp$"},
+            {"x": qr, "y": spectra["parallel"].value / gamma0, "color": options.colors[0],
+             "linewidth": options.linewidth, "linestyle": "--", "label": r"$\Gamma_\parallel$"},
+            {"x": qr, "y": spectra["cross"].value / gamma0, "color": options.colors[2],
+             "linewidth": options.linewidth, "linestyle": "-.", "label": r"$\Gamma_\times$"},
+        ]
 
         panel = pf.plotLinLin_panel_core(
             figure, curves=curves,
@@ -341,16 +349,21 @@ def make_figure(
         else:
             panel.get_legend().remove()
 
-        detector = pf.add_axes_cm(figure, 11.65, center_y - 1.275, 2.55, 2.55)
-        draw_detector_map(detector, q_z_r, q_y_r, intensity)
-        detector.set_ylabel(r"$q_yR$", labelpad=0.5)
-        if distribution == "P4":
-            detector.set_xlabel(r"$q_zR$", labelpad=0.5)
-
-        chiral_detector = pf.add_axes_cm(figure, 15.0, center_y - 1.275, 2.55, 2.55)
-        draw_detector_map(chiral_detector, q_z_r, q_y_r, chiral, chiral=True)
-        if distribution == "P4":
-            chiral_detector.set_xlabel(r"$q_zR$", labelpad=0.5)
+        q_z_r = case["detector"]["qz"].value * radius
+        q_y_r = case["detector"]["qy"].value * radius
+        scattering = case["SANS_cross_sections"]["analytical"]
+        intensity = scattering["derived"]["I_sf"].value / sf_max
+        chiral = scattering["basic"]["I_chi"].value / chi_max
+        detector = draw_detector_map(
+            figure, q_z_r, q_y_r, intensity,
+            pos_cm=(11.65, center_y - 1.275), ylabel=r"$q_yR$",
+            xlabel=r"$q_zR$" if distribution == "P4" else "",
+        )
+        chiral_detector = draw_detector_map(
+            figure, q_z_r, q_y_r, chiral, chiral=True,
+            pos_cm=(15.0, center_y - 1.275),
+            xlabel=r"$q_zR$" if distribution == "P4" else "",
+        )
 
         arrow((3.35, center_y), (4.05, center_y))
         arrow((6.5, center_y), (6.9, center_y))
@@ -404,11 +417,16 @@ def make_figure(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output-dir", type=Path, default=Path(tempfile.gettempdir()) / "so3-vortex-p4")
+    parser.add_argument("--data-dir", type=Path, default=PROJECT_ROOT / "output" / "data")
+    parser.add_argument("--output-dir", type=Path, default=PROJECT_ROOT / "output")
     args = parser.parse_args()
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    data = load_linear_vortex_orientation_data()
-    report = dict(data.validation)
+    data = load_figure_data(args.data_dir)
+    report = {
+        "data_files": [str((args.data_dir / name).resolve()) for name in DATA_FILENAMES],
+        "source": "analytical",
+        "volume_means": [case["average_magnetization"]["analytical"]["volume_mean"].value.tolist() for case in data],
+    }
     report["paperfig_module"] = str(pf.__file__)
     report["figure_size_inches"] = [FIGURE_WIDTH_IN, FIGURE_HEIGHT_IN]
     report["spin_flip_display"] = "magma, linear, common scale [0, 1]"
@@ -416,13 +434,8 @@ def main() -> None:
     report["chiral_display"] = "RdBu_r, linear, common symmetric scale [-1, 1]"
     output_stem = args.output_dir / "fig1"
     figure = make_figure(data)
-    # Preserve the rendering pipeline, keeping its PDF intermediate temporary.
-    with tempfile.TemporaryDirectory(prefix="so3-figure-export-") as directory:
-        intermediate = Path(directory) / output_stem.with_suffix(".pdf").name
-        figure.savefig(intermediate, dpi=900)
-        plt.close(figure)
-        subprocess.run(["pdftoppm", "-png", "-r", "600", "-singlefile",
-                        str(intermediate), str(output_stem)], check=True)
+    figure.savefig(output_stem.with_suffix(".png"), dpi=600)
+    plt.close(figure)
     output_stem.with_suffix(".json").write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report, indent=2))
 
