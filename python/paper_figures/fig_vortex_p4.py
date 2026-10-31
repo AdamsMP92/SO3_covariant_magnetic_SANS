@@ -182,16 +182,13 @@ def draw_detector_map(
     """Draw the SF mean or the signed chiral half-difference."""
     color_map = mpl.colormaps["RdBu_r" if chiral else "magma"].copy()
     color_map.set_bad("white")
-    shading = "flat"
-    if q_z_r.shape == intensity.shape:
-        # Close the periodic angle axis while retaining the stored point coordinates.
-        q_z_r = np.concatenate([q_z_r, q_z_r[:1]], axis=0)
-        q_y_r = np.concatenate([q_y_r, q_y_r[:1]], axis=0)
-        intensity = np.concatenate([intensity, intensity[:1]], axis=0)
-        shading = "gouraud"
+    # Close the periodic angle axis while retaining the stored point coordinates.
+    q_z_r = np.concatenate([q_z_r, q_z_r[:1]], axis=0)
+    q_y_r = np.concatenate([q_y_r, q_y_r[:1]], axis=0)
+    intensity = np.concatenate([intensity, intensity[:1]], axis=0)
     axis, mesh = pf.plot2D_pcolormesh_panel_core(
         figure, q_z_r, q_y_r, intensity,
-        pos_cm=pos_cm, size_cm=size_cm, shading=shading,
+        pos_cm=pos_cm, size_cm=size_cm, shading="gouraud",
         cmap=color_map, vmin=-1.0 if chiral else 0.0, vmax=1.0,
         aspect="equal", xlim=(-Q_R_MAX, Q_R_MAX), ylim=(-Q_R_MAX, Q_R_MAX),
         xticks=(-5, 0, 5), yticks=(-5, 0, 5), xlabel=xlabel, ylabel=ylabel,
@@ -214,6 +211,7 @@ def draw_linear_vortex(
     field,
     *,
     display_radius=None,
+    pos_cm=(0.02, 4.725),
 ) -> mpl.axes.Axes:
     """Render the common 3D vortex texture with paperfig's fast glyph path."""
     positions = np.column_stack([field[axis].value for axis in "xyz"])
@@ -244,8 +242,8 @@ def draw_linear_vortex(
             focal_point=(0.0, 0.0, 0.0),
             up_direction=(0.0, 0.0, 1.0),
             axes_width_cm=3.15,
-            axes_pos_x_cm=0.02,
-            axes_pos_y_cm=4.725,
+            axes_pos_x_cm=pos_cm[0],
+            axes_pos_y_cm=pos_cm[1],
             margin_cm=0.16,
             crop_cm=(0.12, 0.12, 0.12, 0.12),
             dpi=600,

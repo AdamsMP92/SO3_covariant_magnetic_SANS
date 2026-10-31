@@ -8,13 +8,15 @@ channel-priority = "strict"
 platforms = ["osx-arm64", "linux-64"]
 
 [tasks]
-check = "python python/check_affine_pair.py"
-test = { cmd = "python -m pytest -q tests", env = { PYTHONPATH = "python", OPENBLAS_NUM_THREADS = "2", OMP_NUM_THREADS = "2" } }
-data = { cmd = "python -m models.build_data", env = { PYTHONPATH = "python", OPENBLAS_NUM_THREADS = "2", OMP_NUM_THREADS = "2" } }
+check = { depends-on = ["test"] }
+test = { cmd = "python -m pytest -q tests", env = { OPENBLAS_NUM_THREADS = "2", OMP_NUM_THREADS = "2" } }
+data1 = { cmd = "python -m python.case_studies.case_study1", env = { OPENBLAS_NUM_THREADS = "2", OMP_NUM_THREADS = "2" } }
+data2 = { cmd = "python -m python.case_studies.case_study2", env = { OPENBLAS_NUM_THREADS = "2", OMP_NUM_THREADS = "2" } }
+data = { cmd = "python -m python.case_studies.case_study1 && python -m python.case_studies.case_study2", env = { OPENBLAS_NUM_THREADS = "2", OMP_NUM_THREADS = "2" } }
 kernel = "python -m ipykernel install --user --name so3_covariant_magnetic_sans --display-name 'Python 3.11 (Pixi: so3-covariant-magnetic-sans)'"
 notebook = { cmd = "jupyter lab notebooks/inspect_data.ipynb", depends-on = ["kernel"] }
-fig1 = { cmd = "python python/fig_vortex_p4.py --output-dir output", depends-on = ["data"] }
-fig2 = { cmd = "python python/fig_affine_pair.py --output-dir output", depends-on = ["data"] }
+fig1 = { cmd = "python -m python.paper_figures.fig_vortex_p4 --output-dir output", env = { OPENBLAS_NUM_THREADS = "2", OMP_NUM_THREADS = "2", VTK_SMP_MAX_THREADS = "2" } }
+fig2 = { cmd = "python -m python.paper_figures.fig_affine_pair --output-dir output", env = { OPENBLAS_NUM_THREADS = "2", OMP_NUM_THREADS = "2", VTK_SMP_MAX_THREADS = "2" } }
 
 [dependencies]
 python = "3.11.*"

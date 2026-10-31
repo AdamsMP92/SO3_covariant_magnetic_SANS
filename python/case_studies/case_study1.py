@@ -6,10 +6,9 @@ Run from the repository root: python -m python.case_studies.case_study1
 from pathlib import Path
 
 import numpy as np
-import mammos_entity as me
 
 from ..models import Model
-from ..generate_data.gen_data import gen_data
+from ..generate_data import gen_data
 
 
 def main():

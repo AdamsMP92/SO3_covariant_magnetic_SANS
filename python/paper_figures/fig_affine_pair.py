@@ -9,14 +9,10 @@ and longitudinal spectrum; the orientation law and both detector maps agree.
 from pathlib import Path
 import argparse
 import json
-import subprocess
-import sys
-import tempfile
+import numpy as np
+import mammos_entity as me
 
-sys.dont_write_bytecode = True
-import paper_figures.fig_vortex_p4 as base
-from data_products import AffinePairData, AffineProjectionData
-from data_io import load_affine_projection_data
+from . import fig_vortex_p4 as base
 
 mpl = base.mpl
 plt = base.plt
@@ -24,34 +20,34 @@ pf = base.pf
 
 WIDTH_CM = 18.0
 HEIGHT_CM = 9.0
+DATA_FILENAMES = ("case_study2_1.h5", "case_study2_2.h5")
 
 
-def draw_texture(figure, data: AffinePairData, center_y):
-    field = data.field
-    original = base.paperfig_panel_3d.add_reference_axes
-    base.paperfig_panel_3d.add_reference_axes = lambda *args, **kwargs: None
-    try:
-        pf.quiver3_advanced_panel_fast(
-            figure,
-            field.positions[:, 0], field.positions[:, 1], field.positions[:, 2],
-            field.magnetization[:, 0], field.magnetization[:, 1],
-            field.magnetization[:, 2], field.axial_fraction,
-            Cmin=0.0, Cmax=1.0,
-            cmap="RdBu", head_length=0.34, stick_radius=0.055,
-            head_radius=0.13, arrow_scale=0.20, subsample=1,
-            view="custom", cam_pos=(3.0, -3.0, 2.15),
-            focal_point=(0.0, 0.0, 0.0), up_direction=(0.0, 0.0, 1.0),
-            axes_width_cm=3.15, axes_pos_x_cm=0.02,
-            axes_pos_y_cm=center_y - 1.575,
-            margin_cm=0.16, crop_cm=(0.12, 0.12, 0.12, 0.12), dpi=600,
-        )
-    finally:
-        base.paperfig_panel_3d.add_reference_axes = original
+def load_figure_data(data_dir):
+    """Read the displaced circular and centered elliptic cases from MaMMoS."""
+    data = [me.from_hdf5(Path(data_dir) / name) for name in DATA_FILENAMES]
+    reference = data[0]
+    for case in data:
+        if case["model"]["psi"]["name"] != "uniform":
+            raise ValueError("Figure 2 requires uniform orientation densities.")
+        if case["model"]["R"].value != reference["model"]["R"].value:
+            raise ValueError("Figure 2 requires matching sphere radii.")
+        for name in ("q", "theta"):
+            if not np.array_equal(case["detector"][name].value, reference["detector"][name].value):
+                raise ValueError("Figure 2 requires matching detector points.")
+        for family, name in (("derived", "I_sf"), ("basic", "I_chi")):
+            if not np.allclose(
+                case["SANS_cross_sections"]["analytical"][family][name].value,
+                reference["SANS_cross_sections"]["analytical"][family][name].value,
+                rtol=1e-12, atol=1e-14,
+            ):
+                raise ValueError(f"Figure 2 requires identical analytical {name} maps.")
+    return data
 
 
-def make_figure(data: AffineProjectionData | None = None):
+def make_figure(data=None):
     if data is None:
-        data = load_affine_projection_data()
+        data = load_figure_data(base.PROJECT_ROOT / "output" / "data")
     figure = pf.create_paper_figure(
         width_cm=WIDTH_CM, height_cm=HEIGHT_CM, use_latex=True,
         fontserif="Computer Modern Roman",
@@ -74,26 +70,33 @@ def make_figure(data: AffineProjectionData | None = None):
     label(r"$I_{\chi,d}^{\perp}=I_{\chi,e}^{\perp}$", 16.275, 8.05)
 
     options = pf.global_options
-    for data, model, cy, title, letters in (
-        (data.circular, "d", 6.4, "displaced circular\nvortex", "abcde"),
-        (data.elliptic, "e", 2.8, "centered elliptic\nvortex", "fghij"),
-    ):
-        draw_texture(figure, data, cy)
+    sf_max = max(np.max(case["SANS_cross_sections"]["analytical"]["derived"]["I_sf"].value) for case in data)
+    chi_max = max(np.max(np.abs(case["SANS_cross_sections"]["analytical"]["basic"]["I_chi"].value)) for case in data)
+    for case, (model, cy, title, letters) in zip(data, (
+        ("d", 6.4, "displaced circular\nvortex", "abcde"),
+        ("e", 2.8, "centered elliptic\nvortex", "fghij"),
+    )):
+        radius = float(case["model"]["R"].value)
+        base.draw_linear_vortex(
+            figure, case["real_space"], display_radius=0.9 * radius,
+            pos_cm=(0.02, cy - 1.575),
+        )
         label(title, 1.6, cy + 1.7, linespacing=1.1)
-        base.draw_orientation_sphere(figure, pos_cm=(3.85, cy - 1.45))
+        base.draw_orientation_sphere(figure, case["model"], pos_cm=(3.85, cy - 1.45))
         label(r"$\psi(\mathbf R)=1,\ \langle\mathbf M\rangle_{\psi,\mathbf r}=\mathbf0$",
               5.3, cy + 1.6)
 
-        spectra = data.spectra
-        scattering = data.scattering
-        qr = spectra.q_r
+        spectra = case["average_gamma_tensor"]["analytical"]["spectra"]
+        scattering = case["SANS_cross_sections"]["analytical"]
+        qr = case["detector"]["q_axis"].value * radius
+        gamma0 = np.dot(case["model"]["m0"].value, case["model"]["m0"].value)
         curves = [
-            {"x": qr, "y": spectra.gamma_perpendicular, "color": options.colors[1],
+            {"x": qr, "y": spectra["perpendicular"].value / gamma0, "color": options.colors[1],
              "linewidth": options.linewidth, "label": r"$\Gamma_\perp$"},
-            {"x": qr, "y": spectra.gamma_parallel, "color": options.colors[0],
+            {"x": qr, "y": spectra["parallel"].value / gamma0, "color": options.colors[0],
              "linewidth": options.linewidth, "linestyle": "--",
              "label": r"$\Gamma_\parallel$"},
-            {"x": qr, "y": spectra.gamma_cross, "color": options.colors[2],
+            {"x": qr, "y": spectra["cross"].value / gamma0, "color": options.colors[2],
              "linewidth": options.linewidth, "linestyle": "-.",
              "label": r"$\Gamma_\times$"},
         ]
@@ -110,19 +113,17 @@ def make_figure(data: AffineProjectionData | None = None):
         else:
             panel.get_legend().remove()
 
+        q_z_r = case["detector"]["qz"].value * radius
+        q_y_r = case["detector"]["qy"].value * radius
         sf_axis = base.draw_detector_map(
             figure,
-            scattering.q_z_r_edges,
-            scattering.q_y_r_edges,
-            scattering.spin_flip_display,
+            q_z_r, q_y_r, scattering["derived"]["I_sf"].value / sf_max,
             pos_cm=(11.65, cy - 1.275),
         )
         sf_axis.set_ylabel(r"$q_yR$", labelpad=0.5)
         chi_axis = base.draw_detector_map(
             figure,
-            scattering.q_z_r_edges,
-            scattering.q_y_r_edges,
-            scattering.chiral_display,
+            q_z_r, q_y_r, scattering["basic"]["I_chi"].value / chi_max,
             pos_cm=(15.0, cy - 1.275),
             chiral=True,
         )
@@ -173,25 +174,27 @@ def make_figure(data: AffineProjectionData | None = None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--data-dir", type=Path, default=base.PROJECT_ROOT / "output" / "data")
     parser.add_argument("--output-dir", type=Path,
-                        default=Path(tempfile.gettempdir()) / "so3-affine-pair")
+                        default=base.PROJECT_ROOT / "output")
     args = parser.parse_args()
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    data = load_affine_projection_data()
-    report = dict(data.validation)
+    data = load_figure_data(args.data_dir)
+    report = {
+        "data_files": [str((args.data_dir / name).resolve()) for name in DATA_FILENAMES],
+        "source": "analytical",
+        "volume_means": [case["average_magnetization"]["analytical"]["volume_mean"].value.tolist() for case in data],
+    }
     report["paperfig_module"] = str(pf.__file__)
     report["figure_size_cm"] = [WIDTH_CM, HEIGHT_CM]
     report["PNG_dpi"] = 600
     report["texture_color"] = "M_{z,0}/|M_0|, RdBu, linear scale [0, 1]"
+    report["spin_flip_display"] = "magma, linear, common scale [0, 1]"
+    report["chiral_display"] = "RdBu_r, linear, common symmetric scale [-1, 1]"
     output = args.output_dir / "fig2"
     figure = make_figure(data)
-    # Preserve the rendering pipeline, keeping its PDF intermediate temporary.
-    with tempfile.TemporaryDirectory(prefix="so3-figure-export-") as directory:
-        intermediate = Path(directory) / output.with_suffix(".pdf").name
-        figure.savefig(intermediate, dpi=900)
-        plt.close(figure)
-        subprocess.run(["pdftoppm", "-png", "-r", "600", "-singlefile",
-                        str(intermediate), str(output)], check=True)
+    figure.savefig(output.with_suffix(".png"), dpi=600)
+    plt.close(figure)
     output.with_suffix(".json").write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report, indent=2))
 

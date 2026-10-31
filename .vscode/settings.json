@@ -1,7 +1,7 @@
 {
   "python.defaultInterpreterPath": "${workspaceFolder}/.pixi/envs/default/bin/python",
   "python.analysis.extraPaths": [
-    "${workspaceFolder}/python"
+    "${workspaceFolder}"
   ],
   "python.terminal.activateEnvironment": false,
   "python.testing.pytestEnabled": true,

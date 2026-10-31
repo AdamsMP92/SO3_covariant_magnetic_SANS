@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 
 from ..models import Model
-from ..generate_data.gen_data import gen_data
+from ..generate_data import gen_data
 
 
 def main():
