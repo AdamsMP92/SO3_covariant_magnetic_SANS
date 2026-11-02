@@ -1,6 +1,7 @@
 [workspace]
 name = "so3-covariant-magnetic-sans"
 version = "0.1.0"
+requires-pixi = ">=0.83.0"
 description = "Reproducible figures for SO(3)-covariant powder-averaged magnetic SANS"
 authors = ["Michael P. Adams"]
 channels = ["conda-forge"]

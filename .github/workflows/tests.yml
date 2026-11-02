@@ -18,10 +18,10 @@ jobs:
       - name: Install Pixi environment
         uses: prefix-dev/setup-pixi@v0.11.2
         with:
-          pixi-version: v0.66.0
+          pixi-version: v0.83.0
           cache: true
           cache-write: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
           frozen: true
 
       - name: Run tests
-        run: pixi run test
+        run: pixi run --locked test

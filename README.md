@@ -17,11 +17,12 @@ branch, including the three radial Gamma spectra where applicable.
 
 ## Run the case studies and figures
 
-Use the pinned environment and run commands from the repository root:
+Use Pixi **0.83.0 or newer**; the GitHub Actions workflow tests with **0.83.0**.
+Install the locked environment and run commands from the repository root:
 
 ```sh
-pixi install
-pixi run test
+pixi install --locked
+pixi run --locked test
 pixi run data
 pixi run fig1
 pixi run fig2
