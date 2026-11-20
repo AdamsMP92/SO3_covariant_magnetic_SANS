@@ -1,0 +1,30 @@
+name: so3-covariant-magnetic-sans
+channels:
+  - conda-forge
+dependencies:
+  # Keep the scientific package versions aligned with pixi.toml.
+  - python=3.11
+  - pip
+  - git
+  - numpy=1.26.4
+  - scipy>=1.15,<2
+  - matplotlib-base=3.10.8
+  - pillow=11.3.0
+  - h5py>=3.12,<4
+  - pyyaml>=6,<7
+  - poppler=25.12.0
+  - pytest>=8,<10
+  - jupyterlab>=4,<5
+  - ipykernel>=6.29,<8
+  - ipywidgets>=8.1.9,<9
+  - jupyter-server-proxy>=4.6.0,<5
+  - nest-asyncio>=1.6.0,<2
+  - trame>=4.0.0,<5
+  - trame-vtk>=2.11.17,<3
+  - trame-vuetify>=3.3.0,<4
+  - pip:
+      - mammos-entity==0.14.0
+      # VTK's Linux wheels support off-screen rendering through EGL/OSMesa.
+      - vtk==9.5.2
+      - pyvista==0.46.5
+      - paperfig @ git+https://github.com/AdamsMP92/paperfig.git@9a70e7800d2ea520d4055807fe7da1bd00647fd9

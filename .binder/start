@@ -1,0 +1,12 @@
+#!/bin/bash
+set -euo pipefail
+
+export PYVISTA_OFF_SCREEN=true
+export PYVISTA_TRAME_SERVER_PROXY_PREFIX=/proxy/
+export PYVISTA_TRAME_JUPYTER_MODE=proxy
+export OPENBLAS_NUM_THREADS=2
+export OMP_NUM_THREADS=2
+export VTK_SMP_MAX_THREADS=2
+export LP_NUM_THREADS=2
+
+exec "$@"

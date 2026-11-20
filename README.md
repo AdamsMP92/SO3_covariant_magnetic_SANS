@@ -53,6 +53,16 @@ pixi run notebook
 The notebook reads the file selected by its `path` variable. `pixi run check`
 is an alias for the test suite.
 
+## Run the notebook on Binder
+
+[Open the notebook on Binder](https://mybinder.org/v2/gh/AdamsMP92/SO3_covariant_magnetic_SANS/main?urlpath=lab/tree/notebooks/inspect_data.ipynb).
+
+Binder installs the packages in `.binder/environment.yml`, registers the
+notebook kernel, and generates all five HDF5 files during the image build
+using the existing case-study scripts and their default sampling settings.
+The first build includes these calculations. The PyVista view uses off-screen
+rendering and Jupyter's server proxy to display the interactive scene.
+
 ## Python API and incremental export
 
 ```python

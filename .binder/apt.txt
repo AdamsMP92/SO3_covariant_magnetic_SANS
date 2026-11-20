@@ -1,0 +1,6 @@
+libegl1
+libgl1
+libgl1-mesa-dri
+libopengl0
+libosmesa6
+libxrender1
