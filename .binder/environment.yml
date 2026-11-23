@@ -23,7 +23,7 @@ dependencies:
   - trame-vtk>=2.11.17,<3
   - trame-vuetify>=3.3.0,<4
   - pip:
-      - mammos-entity==0.14.0
+      - mammos-entity @ git+https://github.com/MaMMoS-project/mammos-entity.git@main
       # VTK's Linux wheels support off-screen rendering through EGL/OSMesa.
       - vtk==9.5.2
       - pyvista==0.46.5
