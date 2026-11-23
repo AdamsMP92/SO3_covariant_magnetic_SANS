@@ -39,6 +39,10 @@ pixi run fig1
 pixi run fig2
 ```
 
+`mammos-entity` is installed from its upstream `main` branch. `pixi.lock`
+records the exact commit used by Pixi. Run `pixi update mammos-entity`
+to select a newer upstream commit, then rerun `pixi run --locked test`.
+
 `data` runs the two case studies sequentially. `data1` and `data2` generate
 them individually:
 
@@ -73,6 +77,7 @@ notebook kernel, and generates all five HDF5 files during the image build
 using the existing case-study scripts and their default sampling settings.
 The first build includes these calculations. The PyVista view uses off-screen
 rendering and Jupyter's server proxy to display the interactive scene.
+Binder resolves `mammos-entity` from upstream `main` when building its image.
 
 ## Python API and incremental export
 

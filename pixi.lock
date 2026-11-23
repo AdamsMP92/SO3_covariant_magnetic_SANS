@@ -335,6 +335,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/wslink-2.6.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/zipp-4.1.2-pyh5ded981_0.conda
       - pypi: git+https://github.com/AdamsMP92/paperfig.git?rev=9a70e7800d2ea520d4055807fe7da1bd00647fd9#9a70e7800d2ea520d4055807fe7da1bd00647fd9
+      - pypi: git+https://github.com/MaMMoS-project/mammos-entity.git?branch=main#5f919701b3cee966086a89c8bce4bc5b4fd7ec33
       - pypi: https://files.pythonhosted.org/packages/10/c2/6604a71269e0c1bd75656d5a001432d16f2cc5b8c057140ec797155c295e/rdflib-7.6.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/13/00/b3f595b34b339e4c3a9f8f622ee7e2a6f3b85a9af9b69789aecf3ef18752/astropy_iers_data-0.2026.10.19.0.52.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/1d/c7/7a58ca6c856700e623d8a6577476d2e70b64913812d192bf37f74d3b05f7/emmontopy-0.11.4-py3-none-any.whl
@@ -342,7 +343,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/29/1f/88e64e3b4a8299fcc47dd0db35276ca21c18fadad4e8eb25afad546404c6/blessed-1.52.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/3d/7d/5f718d5eb41368d05bb7017cf41dde55b09c66658c912d2fc36ebbcde399/h5glance-0.9.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/52/a0/c1f604538ff6db22a0690be2dc44ab59178e115f63c917794e529356ab23/h5py-3.16.0-cp311-cp311-manylinux_2_28_x86_64.whl
-      - pypi: https://files.pythonhosted.org/packages/5c/2a/d02175fc31d4ca110e2644d227255ab07e4597040519de4ce69f50cd2f2f/mammos_entity-0.14.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/62/06/de9eab54845aeb1a60d1b9bfe115e55540e00bab50d1ec52a4c503f33097/owlready2-0.49.tar.gz
       - pypi: https://files.pythonhosted.org/packages/63/be/dfb6cc9329d0bbe76dadda8a1113d026bb996ec76c509221368dc68349f4/pandas-3.0.6-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl
       - pypi: https://files.pythonhosted.org/packages/8e/c2/8fec8e8e2eb920cc2280f569144080cd58622a2eda83bfa4c0c354a63264/anywidget-0.11.0-py3-none-any.whl
@@ -627,6 +627,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/zstandard-0.25.0-py311hd322c8c_4.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/zstd-1.5.7-hf451053_7.conda
       - pypi: git+https://github.com/AdamsMP92/paperfig.git?rev=9a70e7800d2ea520d4055807fe7da1bd00647fd9#9a70e7800d2ea520d4055807fe7da1bd00647fd9
+      - pypi: git+https://github.com/MaMMoS-project/mammos-entity.git?branch=main#5f919701b3cee966086a89c8bce4bc5b4fd7ec33
       - pypi: https://files.pythonhosted.org/packages/10/c2/6604a71269e0c1bd75656d5a001432d16f2cc5b8c057140ec797155c295e/rdflib-7.6.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/11/4a/31a363370478b63c6289a34743f2ba2d3ae1bd8223e004d18ab28fb92385/pyerfa-2.0.1.5-cp39-abi3-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/13/00/b3f595b34b339e4c3a9f8f622ee7e2a6f3b85a9af9b69789aecf3ef18752/astropy_iers_data-0.2026.10.19.0.52.1-py3-none-any.whl
@@ -635,7 +636,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/29/1f/88e64e3b4a8299fcc47dd0db35276ca21c18fadad4e8eb25afad546404c6/blessed-1.52.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/3d/7d/5f718d5eb41368d05bb7017cf41dde55b09c66658c912d2fc36ebbcde399/h5glance-0.9.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/55/a6/39db5d41f3eb5d7846626312cb30e0cea48e988fc47a3725698bc931ad3c/pandas-3.0.6-cp311-cp311-macosx_11_0_arm64.whl
-      - pypi: https://files.pythonhosted.org/packages/5c/2a/d02175fc31d4ca110e2644d227255ab07e4597040519de4ce69f50cd2f2f/mammos_entity-0.14.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/62/06/de9eab54845aeb1a60d1b9bfe115e55540e00bab50d1ec52a4c503f33097/owlready2-0.49.tar.gz
       - pypi: https://files.pythonhosted.org/packages/8e/c2/8fec8e8e2eb920cc2280f569144080cd58622a2eda83bfa4c0c354a63264/anywidget-0.11.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/bb/fb/4e71d66920a3118ce9246c224d875b68a01884dda1a52982feeb45a6e745/htmlgen-2.0.0-py3-none-any.whl
@@ -7117,6 +7117,19 @@ packages:
   - pillow
   - pyvista
   requires_python: '>=3.8'
+- pypi: git+https://github.com/MaMMoS-project/mammos-entity.git?branch=main#5f919701b3cee966086a89c8bce4bc5b4fd7ec33
+  name: mammos-entity
+  version: 0.14.0
+  requires_dist:
+  - anywidget
+  - emmontopy>=0.8
+  - h5glance>=0.9
+  - h5py>=3.13
+  - mammos-units>=0.2.1
+  - numpy<3
+  - pandas>=2
+  - traitlets
+  requires_python: '>=3.11'
 - pypi: https://files.pythonhosted.org/packages/10/c2/6604a71269e0c1bd75656d5a001432d16f2cc5b8c057140ec797155c295e/rdflib-7.6.0-py3-none-any.whl
   name: rdflib
   version: 7.6.0
@@ -7319,20 +7332,6 @@ packages:
   - xlrd>=2.0.1 ; extra == 'all'
   - xlsxwriter>=3.2.0 ; extra == 'all'
   - zstandard>=0.23.0 ; extra == 'all'
-  requires_python: '>=3.11'
-- pypi: https://files.pythonhosted.org/packages/5c/2a/d02175fc31d4ca110e2644d227255ab07e4597040519de4ce69f50cd2f2f/mammos_entity-0.14.0-py3-none-any.whl
-  name: mammos-entity
-  version: 0.14.0
-  sha256: fc477dbb047d7fd99d27222fd9635850b26eff0f5d2fa621e4def43f903aaab8
-  requires_dist:
-  - anywidget
-  - emmontopy>=0.8
-  - h5glance>=0.9
-  - h5py>=3.13
-  - mammos-units>=0.2.1
-  - numpy<3
-  - pandas>=2
-  - traitlets
   requires_python: '>=3.11'
 - pypi: https://files.pythonhosted.org/packages/62/06/de9eab54845aeb1a60d1b9bfe115e55540e00bab50d1ec52a4c503f33097/owlready2-0.49.tar.gz
   name: owlready2
