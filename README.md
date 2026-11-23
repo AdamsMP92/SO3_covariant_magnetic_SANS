@@ -15,6 +15,17 @@ the averaged magnetization, and the forward chain on a common detector grid.
 QMC provides the numerical branch. Known cases also receive an analytical
 branch, including the three radial Gamma spectra where applicable.
 
+## Project status
+
+| Description | Badge |
+| --- | --- |
+| Tests on `main` | [![Tests](https://github.com/AdamsMP92/SO3_covariant_magnetic_SANS/actions/workflows/tests.yml/badge.svg?branch=main&event=push)](https://github.com/AdamsMP92/SO3_covariant_magnetic_SANS/actions/workflows/tests.yml?query=branch%3Amain) |
+| Interactive notebook | [![Launch Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/AdamsMP92/SO3_covariant_magnetic_SANS/main?urlpath=lab/tree/notebooks/inspect_data.ipynb) |
+| Latest GitHub release | [![GitHub release](https://img.shields.io/github/v/release/AdamsMP92/SO3_covariant_magnetic_SANS)](https://github.com/AdamsMP92/SO3_covariant_magnetic_SANS/releases/latest) |
+| Archived release on Zenodo (v1.4) | [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24326646.svg)](https://doi.org/10.5281/zenodo.24326646) |
+| Python version | [![Python 3.11](https://img.shields.io/badge/python-3.11-blue?logo=python&logoColor=white)](pixi.toml) |
+| License | [![MIT license](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE) |
+
 ## Run the case studies and figures
 
 Use Pixi **0.83.0 or newer**; the GitHub Actions workflow tests with **0.83.0**.
