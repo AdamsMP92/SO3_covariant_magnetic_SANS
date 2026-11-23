@@ -8,7 +8,3 @@ export OMP_NUM_THREADS=2
 python -m ipykernel install --sys-prefix \
     --name so3_covariant_magnetic_sans \
     --display-name 'Python 3.11 (Binder: so3-covariant-magnetic-sans)'
-
-# output/ is excluded from Git. Generate all five files with the case studies.
-python -u -m python.case_studies.case_study1
-python -u -m python.case_studies.case_study2
