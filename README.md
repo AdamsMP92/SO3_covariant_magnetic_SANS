@@ -51,9 +51,9 @@ them individually:
 - Case study 2: a displaced circular and a centered elliptic vortex with
   uniform orientations, saved as `output/data/case_study2_1.h5` and `_2.h5`.
 
-Generation requires new filenames and refuses to overwrite existing HDF5 files.
-Move existing products aside before regenerating them, or use the Python API
-with another filename. Figure commands read the existing HDF5 files and use
+`data`, `data1` and `data2` skip existing HDF5 files with a
+`Data already generated: ...` message and generate only missing files.
+Existing files are left unchanged. Figure commands read the HDF5 files and use
 their analytical branch; they do not trigger data generation. They save
 `output/fig1.png` and `output/fig2.png`, with accompanying JSON reports.
 All paper-figure panels use `paperfig`.
@@ -106,7 +106,11 @@ gamma_xy = data["average_gamma_tensor"]["qmc"]["xy"].value
 spin_flip = data["SANS_cross_sections"]["analytical"]["derived"]["I_sf"].value
 ```
 
-`gen_data` returns the filename. It calls these functions in order, each from
+`gen_data` returns the filename. By default, an existing file raises
+`FileExistsError`; pass `skip_existing=True` to report and skip it instead,
+as the case-study commands do. This checks only file existence, so changes
+to model or sampling parameters require a new filename or explicitly moving
+the previous file aside. For a new file it calls these functions in order, each from
 the corresponding module in `python.generate_data`:
 
 1. `initialize_hdf5(model, filename)` creates the file and stores the model.

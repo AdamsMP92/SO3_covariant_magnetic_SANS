@@ -1,5 +1,7 @@
 """Exercise real MaMMoS files, branch selection and sequential postprocessing."""
 
+from importlib import import_module
+
 import h5py
 import mammos_entity as me
 import numpy as np
@@ -167,3 +169,37 @@ def test_non_importable_density_fails_before_creating_file(tmp_path, vortex_mode
     with pytest.raises(ValueError, match="cannot be imported"):
         initialize_hdf5(vortex_model, filename)
     assert not filename.exists()
+
+
+@pytest.mark.parametrize("as_string", [False, True])
+def test_gen_data_skips_existing_file_without_starting_generation(
+    tmp_path, monkeypatch, capsys, vortex_model, as_string,
+):
+    path = tmp_path / "existing.h5"
+    initialize_hdf5(vortex_model, path)
+    original = path.read_bytes()
+    original_mtime = path.stat().st_mtime_ns
+    generation = import_module("python.generate_data.gen_data")
+
+    def unexpected_generation(*args, **kwargs):
+        pytest.fail("An existing file must be skipped before generation starts.")
+
+    monkeypatch.setattr(generation, "initialize_hdf5", unexpected_generation)
+    filename = str(path) if as_string else path
+    assert gen_data(vortex_model, filename, [0.5], [0.0], skip_existing=True) == filename
+    assert capsys.readouterr().out == f"Data already generated: {filename}\n"
+    assert path.read_bytes() == original
+    assert path.stat().st_mtime_ns == original_mtime
+
+
+def test_gen_data_skip_existing_generates_missing_file(tmp_path, vortex_model):
+    filename = tmp_path / "new.h5"
+    gen_data(vortex_model, filename, [0.5], [0.0], grid_points=3,
+             power=4, seed=0, batch_size=8, skip_existing=True)
+    data = me.from_hdf5(filename)
+    assert {name for name, _ in data} == {
+        "model", "real_space", "detector", "average_magnetization",
+        "average_gamma_tensor", "average_G_tensor", "SANS_cross_sections",
+    }
+    with pytest.raises(FileExistsError):
+        gen_data(vortex_model, filename, [0.5], [0.0])

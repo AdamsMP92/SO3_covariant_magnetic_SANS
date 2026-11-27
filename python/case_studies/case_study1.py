@@ -50,16 +50,19 @@ def main():
     gen_data(
         model1, output1, q, theta,
         grid_points=grid_points, power=14, seed=0, batch_size=1024,
+        skip_existing=True,
     )
 
     gen_data(
             model2, output2, q, theta,
             grid_points=grid_points, power=14, seed=0, batch_size=1024,
+            skip_existing=True,
     )
 
     gen_data(
             model3, output3, q, theta,
             grid_points=grid_points, power=14, seed=0, batch_size=1024,
+            skip_existing=True,
     )
 
 

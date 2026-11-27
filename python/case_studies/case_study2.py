@@ -46,10 +46,12 @@ def main():
     gen_data(
         model1, output_dir / "case_study2_1.h5", q, theta,
         grid_points=grid_points, power=14, seed=0, batch_size=1024,
+        skip_existing=True,
     )
     gen_data(
         model2, output_dir / "case_study2_2.h5", q, theta,
         grid_points=grid_points, power=14, seed=0, batch_size=1024,
+        skip_existing=True,
     )
     return 0
 
